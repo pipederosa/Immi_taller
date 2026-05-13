@@ -1324,7 +1324,13 @@ function abrirFormCuadro(c) {
       <div class="fg"><label class="fl">Estado</label><select class="fs" id="cf-est">${['stock','consignacion','vendido','agotado'].map(t=>`<option value="${t}" ${(c?.estado||'stock')===t?'selected':''}>${{stock:'Stock',consignacion:'Consignación',vendido:'Vendido',agotado:'Agotado'}[t]}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">Cantidad</label><input class="fi" type="number" id="cf-cant" value="${c?.cantidad_disponible??1}" min="0"/></div>
       <div class="fg"><label class="fl">Precio ($)</label><input class="fi" type="number" id="cf-pre" value="${c?.precio||''}"/></div>
-      <div class="fg" style="grid-column:1/-1"><label class="fl">URL de imagen</label><input class="fi" type="url" id="cf-img" value="${c?.imagen_url||''}" placeholder="https://..."/></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label class="fl">Imagen</label>
+        ${c?.imagen_url ? `<img src="${c.imagen_url}" style="width:100%;max-height:200px;object-fit:cover;border-radius:var(--r);margin-bottom:8px"/>` : ''}
+        <input class="fi" type="file" id="cf-img-file" accept="image/*" style="padding:10px"/>
+        <input type="hidden" id="cf-img" value="${c?.imagen_url||''}"/>
+        <p style="font-size:.78rem;color:var(--suave);margin-top:6px">Formatos: JPG, PNG, WEBP</p>
+<    /div>
       <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="ft" id="cf-desc" style="min-height:80px">${c?.descripcion||''}</textarea></div>
     </div>
     <div style="display:flex;gap:12px;margin-top:8px">
@@ -1336,6 +1342,20 @@ function abrirFormCuadro(c) {
 }
 
 async function guardarCuadro(id) {
+  // Subir imagen si se seleccionó una
+  const fileInput = document.getElementById('cf-img-file');
+  if (fileInput?.files?.length > 0) {
+    const file = fileInput.files[0];
+    const ext = file.name.split('.').pop();
+    const fileName = `cuadro-${Date.now()}.${ext}`;
+    const { data: upload, error: uploadErr } = await DB.storage
+      .from('cuadros')
+      .upload(fileName, file, { upsert: true });
+    if (uploadErr) { alert('Error al subir imagen: ' + uploadErr.message); return; }
+    const { data: urlData } = DB.storage.from('cuadros').getPublicUrl(fileName);
+    document.getElementById('cf-img').value = urlData.publicUrl;
+  }
+
   const datos = {
     nombre: document.getElementById('cf-nom').value,
     codigo_id: document.getElementById('cf-cod').value,
