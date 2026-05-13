@@ -976,8 +976,11 @@ function htmlPaso3() {
   <div class="fg"><label class="fl">Tamaño deseado</label>
   <select class="fs" id="c-tam-p"><option value="">Seleccioná un tamaño</option><option value="15x15">15x15 cm</option><option value="20x20">20x20 cm</option><option value="otro">Otro (especificar en descripción)</option></select></div>
   <div class="fg"><label class="fl">Descripción del cuadro *</label><textarea class="ft" id="c-desc" placeholder="Contanos qué querés: imagen, colores, técnica preferida, destino...">${COMPRA._desc||''}</textarea></div>
-  <div class="fg"><label class="fl">Imagen de referencia (URL)</label><input class="fi" id="c-imgref" type="url" placeholder="https://... (Google Drive, Pinterest, etc.)" value="${COMPRA._imgref||''}"/>
-  <p style="font-size:.8rem;color:var(--suave);margin-top:6px">Si no tenés URL, podés enviarla por WhatsApp luego.</p></div>
+  <div class="fg"><label class="fl">Imagen de referencia</label>
+  <input class="fi" type="file" id="c-imgref-file" accept="image/*" style="padding:10px"/>
+  <input type="hidden" id="c-imgref" value="${COMPRA._imgref||''}"/>
+  <p style="font-size:.8rem;color:var(--suave);margin-top:6px">Si no tenés imagen ahora, podés enviarla por WhatsApp luego.</p>
+</div>
   ` : ''}
   <div style="display:flex;gap:12px">
     <button class="btn btn-gh" onclick="volverDePaso3()">← Volver</button>
@@ -990,7 +993,7 @@ function volverDePaso3() {
   else renderPasoCompra(2);
 }
 
-function avanzarDePaso3() {
+async function avanzarDePaso3() {
   const nom = document.getElementById('c-nom')?.value.trim();
   const email = document.getElementById('c-email')?.value.trim();
   const zona = document.getElementById('c-zona')?.value.trim();
@@ -999,7 +1002,25 @@ function avanzarDePaso3() {
     const desc = document.getElementById('c-desc')?.value.trim();
     if (!desc) { alert('Por favor describí el cuadro que querés.'); return; }
     COMPRA._desc = desc;
-    COMPRA._imgref = document.getElementById('c-imgref')?.value;
+
+    // Subir imagen de referencia si se eligió una
+    const fileInput = document.getElementById('c-imgref-file');
+    if (fileInput?.files?.length > 0) {
+      const file = fileInput.files[0];
+      const ext = file.name.split('.').pop();
+      const fileName = `ref-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await DB.storage
+        .from('cuadros')
+        .upload(fileName, file, { upsert: true });
+      if (uploadErr) {
+        alert('Error al subir la imagen. Podés continuar sin ella y enviarla por WhatsApp.');
+      } else {
+        const { data: urlData } = DB.storage.from('cuadros').getPublicUrl(fileName);
+        COMPRA._imgref = urlData.publicUrl;
+      }
+    } else {
+      COMPRA._imgref = '';
+    }
   }
   COMPRA._nombre = nom; COMPRA._email = email;
   COMPRA._tel = document.getElementById('c-tel')?.value;
