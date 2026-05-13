@@ -19,12 +19,12 @@
 // CONFIG — Reemplazá con tus datos reales
 // ============================================================
 const CONFIG = {
-  SUPABASE_URL: 'https://clbhrpjftwjbndmcammm.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsYmhycGpmdHdqYm5kbWNhbW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1Njc4NDUsImV4cCI6MjA5NDE0Mzg0NX0.M4QIyXmr-UEeUr679fM2rU1uUISHyoXO_c86TIsKZc0',
-  EMAILJS_SERVICE_ID: 'service_c0f9srk',
-  EMAILJS_PUBLIC_KEY: 'T-qpaYtHz23IGTriO',
-  EMAILJS_TEMPLATE_CLIENTE: 'template_n1o3ukb',
-  EMAILJS_TEMPLATE_VENDEDOR: 'template_kh6s91d',
+  SUPABASE_URL: 'TU_SUPABASE_URL',
+  SUPABASE_ANON_KEY: 'TU_SUPABASE_ANON_KEY',
+  EMAILJS_SERVICE_ID: 'TU_EMAILJS_SERVICE_ID',
+  EMAILJS_PUBLIC_KEY: 'TU_EMAILJS_PUBLIC_KEY',
+  EMAILJS_TEMPLATE_CLIENTE: 'TU_TEMPLATE_CLIENTE',
+  EMAILJS_TEMPLATE_VENDEDOR: 'TU_TEMPLATE_VENDEDOR',
   EMAILJS_TEMPLATE_PERSONALIZADO: 'TU_TEMPLATE_PERSONALIZADO',
 };
 
@@ -559,7 +559,7 @@ function htmlHome() {
       <span class="foot-logo">Immi taller</span>
       <p>Arte sacro pintado a mano · por Pao Navedo</p>
       <p style="margin-top:8px">© ${new Date().getFullYear()} Immi Taller</p>
-      <p style="margin-top:16px"><a href="#admin-login" onclick="ir('admin-login')" style="font-size:.75rem;color:rgba(244,240,232,.2)">Admin</a></p>
+      <p style="margin-top:32px"><button onclick="ir('admin-login')" style="background:none;border:none;cursor:pointer;color:rgba(244,240,232,0.12);font-size:.7rem;font-family:var(--body);letter-spacing:.1em">admin</button></p>
     </div>
   </footer>`;
 }
@@ -1500,7 +1500,7 @@ async function guardarConfig(claves) {
 
 // ---- FOOTER ----
 function htmlFooter() {
-  return `<footer><div class="wrap"><span class="foot-logo">Immi taller</span><p>Arte sacro pintado a mano · por Pao Navedo</p><p style="margin-top:8px">© ${new Date().getFullYear()} Immi Taller</p></div></footer>`;
+  return `<footer><div class="wrap"><span class="foot-logo">Immi taller</span><p>Arte sacro pintado a mano · por Pao Navedo</p><p style="margin-top:8px">© ${new Date().getFullYear()} Immi Taller</p><p style="margin-top:32px"><button onclick="ir('admin-login')" style="background:none;border:none;cursor:pointer;color:rgba(244,240,232,0.12);font-size:.7rem;font-family:var(--body);letter-spacing:.1em">admin</button></p></div></footer>`;
 }
 
 // ============================================================
