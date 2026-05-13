@@ -355,6 +355,20 @@ function ir(pagina) {
   location.hash = '#' + pagina;
 }
 
+function irSeccion(seccionId) {
+  if (PAGINA !== 'home') {
+    // Si no estamos en home, primero navegamos y luego scrolleamos
+    ir('home');
+    setTimeout(() => {
+      const el = document.getElementById(seccionId);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 400);
+  } else {
+    // Ya estamos en home, scrolleamos directo
+    const el = document.getElementById(seccionId);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  }
+}
 // ============================================================
 // RENDER PRINCIPAL
 // ============================================================
@@ -407,10 +421,10 @@ function htmlNav(activo = 'home') {
       <div class="nav-logo" onclick="ir('home')">Immi <span>taller</span></div>
       <ul class="nav-links" id="nav-links">
         <li><a href="#home" onclick="ir('home')">Inicio</a></li>
-        <li><a href="#home">Nosotras</a></li>
-        <li><a href="#home">Precios</a></li>
-        <li><a href="#archivo" onclick="ir('archivo')">Archivo</a></li>
-        <li><a href="#home">Dónde encontrarnos</a></li>
+        <li><a href="javascript:void(0)" onclick="irSeccion('sobre')">Nosotras</a></li>
+        <li><a href="javascript:void(0)" onclick="irSeccion('precios')">Precios</a></li>
+        <li><a href="javascript:void(0)" onclick="ir('archivo')">Archivo</a></li>
+        <li><a href="javascript:void(0)" onclick="irSeccion('lugares')">Dónde encontrarnos</a></li>
         <li><button class="btn btn-g" style="padding:8px 20px" onclick="ir('compra')">Comprar</button></li>
       </ul>
       <button class="ham" onclick="toggleMenu()"><span></span><span></span><span></span></button>
