@@ -533,6 +533,13 @@ function renderArchivo() {
     });
   }
 
+  // Ordenar: primero los que tienen stock o consignación (disponibles), después los sin disponibilidad
+  data = [...data].sort((a, b) => {
+    const aDisponible = a.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
+    const bDisponible = b.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
+    return aDisponible - bDisponible;
+  });
+
   const grid = document.getElementById('archivo-grid');
   if (!grid) return;
   if (data.length===0) { grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>'; return; }
