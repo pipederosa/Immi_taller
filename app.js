@@ -421,24 +421,43 @@ async function cargarArchivo() {
   const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo',true).order('codigo_id');
   if (!tipos||tipos.length===0) { document.getElementById('archivo-grid').innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros en el archivo aún.</p>'; return; }
   const ids = tipos.map(t=>t.id);
-  const { data:unidades } = await DB.from('unidades_cuadro').select('*,lugares(id,nombre,direccion,google_maps_url)').in('tipo_cuadro_id',ids).eq('activo',true).neq('estado','vendido');
+  const [{ data:unidades },{ data:todosLugares }] = await Promise.all([
+    DB.from('unidades_cuadro').select('*,lugares(id,nombre,direccion,google_maps_url)').in('tipo_cuadro_id',ids).eq('activo',true).neq('estado','vendido'),
+    DB.from('lugares').select('*').eq('activo',true).order('nombre'),
+  ]);
   ARCHIVO_DATA = tipos.map(t=>({...t,unidades:(unidades||[]).filter(u=>u.tipo_cuadro_id===t.id)}));
 
-  // Llenar el select de lugares con los que tienen consignación
-  const lugaresEnCons = {};
-  (unidades||[]).forEach(u => { if (u.estado==='consignacion' && u.lugares) lugaresEnCons[u.lugares.id] = u.lugares.nombre; });
+  // Llenar el select con TODOS los lugares activos
   const selLugar = document.getElementById('filtro-lugar');
   if (selLugar) {
-    selLugar.innerHTML = '<option value="">Todos los lugares</option>' + Object.entries(lugaresEnCons).map(([id,nom])=>`<option value="${id}">${nom}</option>`).join('');
+    selLugar.innerHTML = '<option value="">Todos los lugares</option>' + (todosLugares||[]).map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('');
   }
+
+  renderArchivo();
+}
 
   renderArchivo();
 }
 
 function renderArchivo() {
   let data = ARCHIVO_DATA;
-  if (FILTRO_ARCH==='stock') data = data.filter(t=>t.unidades.some(u=>u.estado==='stock'));
-  if (FILTRO_LUGAR) data = data.filter(t=>t.unidades.some(u=>u.estado==='consignacion' && u.lugares?.id===FILTRO_LUGAR));
+
+  // Si ambos filtros activos: muestra los que tienen stock O están en ese lugar
+  // Si solo uno: aplica solo ese
+  // Si ninguno: todos
+  const filtroStockActivo = FILTRO_ARCH === 'stock';
+  const filtroLugarActivo = !!FILTRO_LUGAR;
+
+  if (filtroStockActivo || filtroLugarActivo) {
+    data = data.filter(t => {
+      const tieneStock = t.unidades.some(u=>u.estado==='stock');
+      const enEseLugar = t.unidades.some(u=>u.estado==='consignacion' && u.lugares?.id===FILTRO_LUGAR);
+      if (filtroStockActivo && filtroLugarActivo) return tieneStock || enEseLugar;
+      if (filtroStockActivo) return tieneStock;
+      if (filtroLugarActivo) return enEseLugar;
+      return true;
+    });
+  }
 
   const grid = document.getElementById('archivo-grid');
   if (!grid) return;
