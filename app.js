@@ -396,7 +396,7 @@ async function cargarHome() {
   if (precEl && precios?.length) precEl.innerHTML = precios.map(p=>`<div class="p-card ${p.tamanio==='20x20'?'dest':''}">${p.tamanio==='20x20'?'<span class="p-badge">Popular</span>':''}<div class="p-tam">${ics[p.tamanio]||'🖼️'} ${p.tamanio}</div><div class="p-val">${Number(p.precio)>0?`<span>$</span>${Number(p.precio).toLocaleString('es-AR')}`:'A definir'}</div><p class="p-desc">${p.descripcion||''}</p><button class="btn ${p.tamanio==='20x20'?'btn-g':'btn-o'}" style="width:100%;justify-content:center" onclick="ir('compra')">Comprar</button></div>`).join('');
 
   const lugEl = document.getElementById('lugares-grid');
-  if (lugEl) lugEl.innerHTML = lugares?.length ? lugares.map(l=>`<div class="l-card"><div style="font-size:2rem">🏪</div><div class="l-info"><h4>${l.nombre}</h4><p>${l.direccion||''}</p>${l.telefono?`<p>📞 ${l.telefono}</p>`:''}</div>${l.google_maps_url?`<a href="${l.google_maps_url}" target="_blank" class="l-link">📍 Ver en el mapa →</a>`:''}</div>`).join('') : '<p style="text-align:center;color:var(--suave)">Próximamente en locales físicos.</p>';
+  if (lugEl) lugEl.innerHTML = lugares?.length ? lugares.map(l=>`<div class="l-card"><div style="font-size:2rem">⛪</div><div class="l-info"><h4>${l.nombre}</h4><p>${l.direccion||''}</p>${l.telefono?`<p>📞 ${l.telefono}</p>`:''}</div>${l.google_maps_url?`<a href="${l.google_maps_url}" target="_blank" class="l-link">📍 Ver en el mapa →</a>`:''}</div>`).join('') : '<p style="text-align:center;color:var(--suave)">Próximamente en locales físicos.</p>';
 }
 
 let _slideInterval = null;
@@ -440,7 +440,7 @@ function htmlArchivo() {
   </div></div>
   <div class="overlay" id="modal-cons"><div class="modal">
     <button class="m-close" onclick="cerrarModal('modal-cons')">✕</button>
-    <div style="text-align:center;font-size:2rem;margin-bottom:12px">🏪</div>
+    <div style="text-align:center;font-size:2rem;margin-bottom:12px">⛪</div>
     <h3>Cuadro en consignación</h3>
     <p>Este cuadro está disponible en estos locales:</p>
     <div id="cons-lista" style="margin-bottom:24px"></div>
@@ -1400,7 +1400,7 @@ async function renderVentas(main) {
     <th>Fecha</th><th>Cuadro</th><th>Tamaño</th><th>Canal</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>Entregado</th>
   </tr></thead><tbody>
   ${V.length===0?'<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--suave)">Sin ventas aún</td></tr>':V.map(v=>{
-    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'🏪 Consig.'};
+    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'⛪ Consig.'};
     const cobradoStyle = v.cobrado
       ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #43a047;font-weight:600'
       : 'background:#fff8e1;color:#f57f17;border:1px solid #f9a825';
@@ -1505,7 +1505,7 @@ async function renderCobros(main) {
     if (vs.length===0) return `<div class="cobro-card" style="opacity:.5"><div class="cobro-lugar">${l.nombre}</div><p style="font-size:.88rem">Sin ventas pendientes</p></div>`;
     const total = vs.reduce((s,v)=>s+(v.precio_venta||0),0);
     return `<div class="cobro-card">
-      <div class="cobro-lugar">🏪 ${l.nombre}</div>
+      <div class="cobro-lugar">⛪ ${l.nombre}</div>
       <div class="cobro-monto">$${Number(total).toLocaleString('es-AR')}</div>
       <div style="margin:12px 0">
         ${vs.map(v=>`<div class="cobro-item">
