@@ -189,6 +189,7 @@ let PAGINA = 'home';
 let TIPOS_CACHE = [];
 let ARCHIVO_DATA = [];
 let FILTRO_ARCH = 'todos';
+let FILTRO_LUGAR = '';
 let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pago:null };
 
 // ============================================================
@@ -381,10 +382,13 @@ function htmlArchivo() {
   return `${htmlNav()}
   <div class="page-hdr"><div class="wrap"><span class="tag">Arte sacro</span><h1>Archivo de obras</h1><p style="color:rgba(244,240,232,.65);margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto">Cada cuadro es único, pintado con fe y dedicación.</p></div></div>
   <div style="background:var(--marfil);min-height:60vh;padding:40px 0"><div class="wrap">
-    <div class="filtros">
-      <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
-      <button class="f-btn" onclick="setFiltroArch(this,'stock')">Solo en stock</button>
-    </div>
+   <div class="filtros">
+     <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
+     <button class="f-btn" onclick="setFiltroArch(this,'stock')">Solo en stock</button>
+     <select class="fs" id="filtro-lugar" style="width:auto;padding:8px 16px;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase" onchange="setFiltroLugar(this.value)">
+       <option value="">Todos los lugares</option>
+     </select>
+   </div>
     <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;padding-bottom:80px">
       <p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">Cargando...</p>
     </div>
@@ -408,17 +412,34 @@ function setFiltroArch(btn, f) {
   btn.classList.add('on'); FILTRO_ARCH=f; renderArchivo();
 }
 
+function setFiltroLugar(lugarId) {
+  FILTRO_LUGAR = lugarId;
+  renderArchivo();
+}
+
 async function cargarArchivo() {
-  const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo',true).order('created_at',{ascending:false});
+  const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo',true).order('codigo_id');
   if (!tipos||tipos.length===0) { document.getElementById('archivo-grid').innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros en el archivo aún.</p>'; return; }
   const ids = tipos.map(t=>t.id);
   const { data:unidades } = await DB.from('unidades_cuadro').select('*,lugares(id,nombre,direccion,google_maps_url)').in('tipo_cuadro_id',ids).eq('activo',true).neq('estado','vendido');
   ARCHIVO_DATA = tipos.map(t=>({...t,unidades:(unidades||[]).filter(u=>u.tipo_cuadro_id===t.id)}));
+
+  // Llenar el select de lugares con los que tienen consignación
+  const lugaresEnCons = {};
+  (unidades||[]).forEach(u => { if (u.estado==='consignacion' && u.lugares) lugaresEnCons[u.lugares.id] = u.lugares.nombre; });
+  const selLugar = document.getElementById('filtro-lugar');
+  if (selLugar) {
+    selLugar.innerHTML = '<option value="">Todos los lugares</option>' + Object.entries(lugaresEnCons).map(([id,nom])=>`<option value="${id}">${nom}</option>`).join('');
+  }
+
   renderArchivo();
 }
 
 function renderArchivo() {
-  let data = FILTRO_ARCH==='stock' ? ARCHIVO_DATA.filter(t=>t.unidades.some(u=>u.estado==='stock')) : ARCHIVO_DATA;
+  let data = ARCHIVO_DATA;
+  if (FILTRO_ARCH==='stock') data = data.filter(t=>t.unidades.some(u=>u.estado==='stock'));
+  if (FILTRO_LUGAR) data = data.filter(t=>t.unidades.some(u=>u.estado==='consignacion' && u.lugares?.id===FILTRO_LUGAR));
+
   const grid = document.getElementById('archivo-grid');
   if (!grid) return;
   if (data.length===0) { grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>'; return; }
