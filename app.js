@@ -1326,11 +1326,12 @@ async function toggleLugar(id, activo) {
 async function renderConfig(main) {
   const { data } = await DB.from('configuracion').select('*');
   const labels = { instagram_url:'URL de Instagram', whatsapp_numero:'WhatsApp (sin +, con código país)', email_vendedor:'Email del vendedor', descripcion_emprendimiento:'Descripción del emprendimiento', recargo_personalizado_archivo:'Recargo personalizado del archivo (%)' };
+  window._cfgClaves = (data||[]).map(c=>c.clave);
   main.innerHTML=`
   <div class="adm-hdr"><h1>Configuración</h1></div>
   <div style="max-width:600px">
     ${(data||[]).map(c=>`<div class="fg"><label class="fl">${labels[c.clave]||c.clave}</label>${c.clave==='descripcion_emprendimiento'?`<textarea class="ft" id="cfg-${c.clave}" style="min-height:100px">${c.valor||''}</textarea>`:`<input class="fi" id="cfg-${c.clave}" value="${c.valor||''}"/>`}</div>`).join('')}
-    <button class="btn btn-g" onclick="guardarConfig(${JSON.stringify((data||[]).map(c=>c.clave))})">Guardar configuración</button>
+    <button class="btn btn-g" onclick="guardarConfig(window._cfgClaves)">Guardar configuración</button>
   </div>`;
 }
 
