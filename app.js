@@ -424,7 +424,7 @@ function toggleDropdownLugares() {
   d.style.display = d.style.display === 'block' ? 'none' : 'block';
 }
 
-function toggleLugar(checkbox) {
+function toggleLugarFiltro(checkbox) {
   if (checkbox.checked) {
     if (!FILTRO_LUGARES.includes(checkbox.value)) FILTRO_LUGARES.push(checkbox.value);
   } else {
@@ -470,7 +470,7 @@ async function cargarArchivo() {
   if (drop) {
     drop.innerHTML = (todosLugares||[]).map(l => `
       <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
-        <input type="checkbox" value="${l.id}" onchange="toggleLugar(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
+        <input type="checkbox" value="${l.id}" onchange="toggleLugarFiltro(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
         ${l.nombre}
       </label>
     `).join('') || '<p style="padding:8px 16px;color:var(--suave);font-size:.85rem">Sin lugares cargados</p>';
