@@ -176,6 +176,9 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 .fade{animation:fadeUp .6s ease forwards}
 @media(max-width:900px){.hero-grid,.sobre-grid,.cont-grid{grid-template-columns:1fr;gap:40px}.hero-img{max-height:400px;aspect-ratio:4/3}.precios-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto}.gal-grid{grid-template-columns:repeat(2,1fr)}.adm-layout{grid-template-columns:1fr}.adm-side{display:none}.valores{grid-template-columns:1fr}}
+.hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
+.hero-slide.on{opacity:1}
+.hero-slide img{width:100%;height:100%;object-fit:cover}
 @media(max-width:640px){.nav-links{display:none}.ham{display:flex}.nav-links.mob-open{display:flex;flex-direction:column;position:absolute;top:70px;left:0;right:0;background:var(--marfil);padding:20px;border-bottom:1px solid var(--lino-osc);gap:16px}.tam-grid{grid-template-columns:1fr}.pago-opts{grid-template-columns:1fr}section{padding:60px 0}.gal-grid{grid-template-columns:repeat(2,1fr)}.stepper{gap:0}.step{padding:12px 4px}.step-l{font-size:.6rem}}
 `;
 
@@ -301,7 +304,9 @@ function htmlHome() {
       </div>
     </div>
     <div class="hero-img fade" style="animation-delay:.2s">
-      <div class="hero-ph"><div class="ic">✝</div><p style="font-family:var(--display);font-style:italic;font-size:1.1rem">Tus imágenes aquí</p></div>
+      <div id="hero-slideshow" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+        <div class="hero-ph"><div class="ic">✝</div></div>
+      </div>
       <div class="hero-frame"></div>
     </div>
   </div></section>
@@ -362,17 +367,50 @@ function htmlHome() {
 
 async function cargarHome() {
   const [{ data:tipos },{ data:precios },{ data:lugares }] = await Promise.all([
-    DB.from('tipos_cuadro').select('*').eq('activo',true).limit(6),
+    DB.from('tipos_cuadro').select('*').eq('activo',true).order('codigo_id'),
     DB.from('precios').select('*').order('precio'),
     DB.from('lugares').select('*').eq('activo',true),
   ]);
+
+  // Slideshow del hero
+  const slideEl = document.getElementById('hero-slideshow');
+  if (slideEl) {
+    const conImg = (tipos||[]).filter(t => t.imagen_url);
+    if (conImg.length === 0) {
+      slideEl.innerHTML = '<div class="hero-ph"><div class="ic">✝</div><p style="font-family:var(--display);font-style:italic;font-size:1.1rem">Cargá cuadros desde el panel admin</p></div>';
+    } else {
+      slideEl.innerHTML = conImg.map((t,i) => `<div class="hero-slide ${i===0?'on':''}"><img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/></div>`).join('');
+      iniciarSlideshow(conImg.length);
+    }
+  }
+
+  // Galería (6 con imagen primero)
   const galEl = document.getElementById('gal-home');
-  if (galEl) galEl.innerHTML = tipos?.length ? tipos.map(t=>`<div class="gal-item" onclick="ir('archivo')">${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}<div class="gal-ov"><span>${t.nombre}</span></div></div>`).join('') : '<p style="grid-column:1/-1;text-align:center;color:var(--suave)">Próximamente nuestras obras</p>';
+  if (galEl) {
+    const ordenados = [...(tipos||[])].sort((a,b) => (b.imagen_url?1:0) - (a.imagen_url?1:0)).slice(0,6);
+    galEl.innerHTML = ordenados.length ? ordenados.map(t=>`<div class="gal-item" onclick="ir('archivo')">${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}<div class="gal-ov"><span>${t.nombre}</span></div></div>`).join('') : '<p style="grid-column:1/-1;text-align:center;color:var(--suave)">Próximamente nuestras obras</p>';
+  }
+
   const ics = {'15x15':'🖼️','20x20':'🎨','personalizado':'✨'};
   const precEl = document.getElementById('precios-grid');
   if (precEl && precios?.length) precEl.innerHTML = precios.map(p=>`<div class="p-card ${p.tamanio==='20x20'?'dest':''}">${p.tamanio==='20x20'?'<span class="p-badge">Popular</span>':''}<div class="p-tam">${ics[p.tamanio]||'🖼️'} ${p.tamanio}</div><div class="p-val">${Number(p.precio)>0?`<span>$</span>${Number(p.precio).toLocaleString('es-AR')}`:'A definir'}</div><p class="p-desc">${p.descripcion||''}</p><button class="btn ${p.tamanio==='20x20'?'btn-g':'btn-o'}" style="width:100%;justify-content:center" onclick="ir('compra')">Comprar</button></div>`).join('');
+
   const lugEl = document.getElementById('lugares-grid');
   if (lugEl) lugEl.innerHTML = lugares?.length ? lugares.map(l=>`<div class="l-card"><div style="font-size:2rem">🏪</div><div class="l-info"><h4>${l.nombre}</h4><p>${l.direccion||''}</p>${l.telefono?`<p>📞 ${l.telefono}</p>`:''}</div>${l.google_maps_url?`<a href="${l.google_maps_url}" target="_blank" class="l-link">📍 Ver en el mapa →</a>`:''}</div>`).join('') : '<p style="text-align:center;color:var(--suave)">Próximamente en locales físicos.</p>';
+}
+
+let _slideInterval = null;
+function iniciarSlideshow(total) {
+  if (_slideInterval) clearInterval(_slideInterval);
+  if (total <= 1) return;
+  let actual = 0;
+  _slideInterval = setInterval(() => {
+    const slides = document.querySelectorAll('.hero-slide');
+    if (!slides.length) { clearInterval(_slideInterval); return; }
+    slides[actual].classList.remove('on');
+    actual = (actual + 1) % total;
+    slides[actual].classList.add('on');
+  }, 2000);
 }
 
 // ============================================================
