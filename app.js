@@ -869,9 +869,25 @@ async function confirmarPedido() {
     descripcion_personalizado: COMPRA._desc||null,
     imagen_referencia_url: COMPRA._imgref||null,
   };
-  const { error } = await DB.from('pedidos').insert(datos);
+  const { data:pedidoCreado, error } = await DB.from('pedidos').insert(datos).select().single();
   if (error) { alert('Error al procesar. Intentá de nuevo.'); btn.disabled=false; btn.textContent='✓ Confirmar pedido'; return; }
-  if (COMPRA.unidad?.id) await DB.from('unidades_cuadro').update({estado:'vendido'}).eq('id',COMPRA.unidad.id);
+
+  // Si es stock con unidad real, crear la venta y marcar la unidad como vendida
+  if (COMPRA.unidad?.id && COMPRA.tipo === 'stock') {
+    await DB.from('unidades_cuadro').update({estado:'vendido'}).eq('id',COMPRA.unidad.id);
+    await DB.from('ventas').insert({
+      unidad_id: COMPRA.unidad.id,
+      pedido_id: pedidoCreado?.id || null,
+      canal: 'web',
+      cliente_nombre: datos.cliente_nombre,
+      cliente_email: datos.cliente_email,
+      cliente_telefono: datos.cliente_telefono,
+      precio_venta: datos.precio_total,
+      cobrado: false,
+      entregado: false,
+    });
+  }
+
   try {
     const ep = {cliente_nombre:datos.cliente_nombre,numero_pedido:datos.numero_pedido,cuadro:COMPRA.tipoCuadro?.nombre||'Personalizado',tamanio:datos.tamanio,precio:COMPRA._precio>0?'$'+Number(COMPRA._precio).toLocaleString('es-AR'):'A definir',zona:datos.zona_envio,metodo_pago:datos.metodo_pago==='efectivo'?'Efectivo':'MercadoPago',to_email:datos.cliente_email,vendedor_email:CFG.email_vendedor};
     if (COMPRA.tipo==='personalizado_nuevo') await emailjs.send(CONFIG.EMAILJS_SERVICE_ID,CONFIG.EMAILJS_TEMPLATE_PERSONALIZADO,{...ep,to_email:CFG.email_vendedor,descripcion:datos.descripcion_personalizado,imagen_ref:datos.imagen_referencia_url||'Sin imagen'});
@@ -941,6 +957,7 @@ function htmlAdmin() {
         <li><button onclick="cargarSecAdmin('catalogo')" id="an-catalogo">🖼️ Catálogo de cuadros</button></li>
         <li><button onclick="cargarSecAdmin('stock')" id="an-stock">📦 Stock</button></li>
         <li><button onclick="cargarSecAdmin('pedidos')" id="an-pedidos">📋 Pedidos web</button></li>
+        <li><button onclick="cargarSecAdmin('ventas')" id="an-ventas">🧾 Todas las ventas</button></li>
         <li><button onclick="cargarSecAdmin('cobros')" id="an-cobros">💰 Cobros consignación</button></li>
         <li><button onclick="cargarSecAdmin('precios')" id="an-precios">🏷️ Precios</button></li>
         <li><button onclick="cargarSecAdmin('lugares')" id="an-lugares">📍 Lugares físicos</button></li>
@@ -964,6 +981,7 @@ async function cargarSecAdmin(sec) {
   else if (sec==='stock') await renderStock(main);
   else if (sec==='pedidos') await renderPedidos(main);
   else if (sec==='cobros') await renderCobros(main);
+  else if (sec==='ventas') await renderVentas(main);
   else if (sec==='precios') await renderPrecios(main);
   else if (sec==='lugares') await renderLugares(main);
   else if (sec==='config') await renderConfig(main);
@@ -1350,8 +1368,100 @@ async function renderPedidos(main) {
   </tbody></table></div>`;
 }
 
+async function renderVentas(main) {
+  const { data:ventas } = await DB.from('ventas')
+    .select('*, unidades_cuadro(tamanio, tecnica, tipos_cuadro(nombre, codigo_id)), lugares(nombre)')
+    .order('created_at',{ascending:false});
+
+  const V = ventas||[];
+  const totalCobrado = V.filter(v=>v.cobrado).reduce((s,v)=>s+(v.precio_venta||0),0);
+  const totalPendiente = V.filter(v=>!v.cobrado).reduce((s,v)=>s+(v.precio_venta||0),0);
+  const totalEntregado = V.filter(v=>v.entregado).length;
+
+  main.innerHTML=`
+  <div class="adm-hdr"><h1>Todas las ventas</h1><p style="color:var(--suave)">Historial completo (web, presencial y consignación)</p></div>
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-v">${V.length}</div><div class="stat-l">Ventas totales</div></div>
+    <div class="stat"><div class="stat-v" style="color:#2e7d32">$${Number(totalCobrado).toLocaleString('es-AR')}</div><div class="stat-l">Cobrado</div></div>
+    <div class="stat"><div class="stat-v" style="color:#f57f17">$${Number(totalPendiente).toLocaleString('es-AR')}</div><div class="stat-l">Pendiente cobrar</div></div>
+    <div class="stat"><div class="stat-v">${totalEntregado}/${V.length}</div><div class="stat-l">Entregadas</div></div>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th>Fecha</th><th>Cuadro</th><th>Tamaño</th><th>Canal</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>Entregado</th>
+  </tr></thead><tbody>
+  ${V.length===0?'<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--suave)">Sin ventas aún</td></tr>':V.map(v=>{
+    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'🏪 Consig.'};
+    const cobradoStyle = v.cobrado
+      ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #43a047;font-weight:600'
+      : 'background:#fff8e1;color:#f57f17;border:1px solid #f9a825';
+    const entregadoStyle = v.entregado
+      ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #43a047;font-weight:600'
+      : 'background:transparent;color:var(--suave);border:1px solid var(--lino-osc)';
+    return `<tr>
+      <td style="font-size:.82rem">${v.created_at?new Date(v.created_at).toLocaleDateString('es-AR'):'—'}</td>
+      <td style="font-size:.85rem">
+        ${v.unidades_cuadro?.tipos_cuadro?.codigo_id?`<span style="font-size:.72rem;color:var(--oro);letter-spacing:.1em">${v.unidades_cuadro.tipos_cuadro.codigo_id}</span><br>`:''}
+        <strong>${v.unidades_cuadro?.tipos_cuadro?.nombre||'—'}</strong>
+        ${v.unidades_cuadro?.tecnica?`<br><span style="font-size:.75rem;color:var(--suave)">${v.unidades_cuadro.tecnica}</span>`:''}
+      </td>
+      <td>${v.unidades_cuadro?.tamanio||'—'}</td>
+      <td style="font-size:.82rem">
+        ${canalLabels[v.canal]||v.canal}
+        ${v.canal==='consignacion'&&v.lugares?.nombre?`<br><span style="font-size:.75rem;color:var(--suave)">📍 ${v.lugares.nombre}</span>`:''}
+      </td>
+      <td style="font-size:.85rem">${v.cliente_nombre||'—'}${v.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${v.cliente_telefono}</span>`:''}</td>
+      <td><strong>${v.precio_venta?'$'+Number(v.precio_venta).toLocaleString('es-AR'):'—'}</strong></td>
+      <td style="text-align:center">
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);cursor:pointer;font-size:.75rem;${cobradoStyle}">
+          <input type="checkbox" ${v.cobrado?'checked':''} onchange="cambiarCobradoVenta('${v.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>
+          ${v.cobrado?'✓ Sí':'No'}
+        </label>
+      </td>
+      <td style="text-align:center">
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);cursor:pointer;font-size:.75rem;${entregadoStyle}">
+          <input type="checkbox" ${v.entregado?'checked':''} onchange="cambiarEntregadoVenta('${v.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>
+          ${v.entregado?'✓ Sí':'No'}
+        </label>
+      </td>
+    </tr>`;
+  }).join('')}
+  </tbody></table></div>`;
+}
+
+async function cambiarCobradoVenta(id, cobrado) {
+  await DB.from('ventas').update({ cobrado }).eq('id', id);
+  renderVentas(document.getElementById('adm-main'));
+}
+
+async function cambiarEntregadoVenta(id, entregado) {
+  await DB.from('ventas').update({ entregado }).eq('id', id);
+  renderVentas(document.getElementById('adm-main'));
+}
+
 async function cambiarEstadoPedido(id, estado) {
   await DB.from('pedidos').update({ estado_pago: estado, updated_at: new Date() }).eq('id', id);
+  // Si pasa a pagado, marcar la venta asociada como cobrada
+  if (estado === 'pagado') {
+    await DB.from('ventas').update({ cobrado: true }).eq('pedido_id', id);
+  } else {
+    await DB.from('ventas').update({ cobrado: false }).eq('pedido_id', id);
+  }
+}
+
+async function cambiarEntregado(id, entregado) {
+  await DB.from('pedidos').update({ entregado, updated_at: new Date() }).eq('id', id);
+  await DB.from('ventas').update({ entregado }).eq('pedido_id', id);
+  // Actualizar el label visualmente
+  const lbl = document.getElementById(`lbl-ent-${id}`);
+  if (lbl) {
+    if (entregado) {
+      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;background:#e8f5e9;border:1px solid #43a047;color:#2e7d32;font-weight:600';
+      lbl.innerHTML = `<input type="checkbox" checked onchange="cambiarEntregado('${id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>✓ Sí`;
+    } else {
+      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;background:transparent;border:1px solid var(--lino-osc);color:var(--suave)';
+      lbl.innerHTML = `<input type="checkbox" onchange="cambiarEntregado('${id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>No`;
+    }
+  }
 }
 
 async function cambiarEntregado(id, entregado) {
