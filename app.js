@@ -432,10 +432,6 @@ async function cargarArchivo() {
   if (selLugar) {
     selLugar.innerHTML = '<option value="">Todos los lugares</option>' + (todosLugares||[]).map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('');
   }
-
-  renderArchivo();
-}
-
   renderArchivo();
 }
 
