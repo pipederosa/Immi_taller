@@ -1315,21 +1315,58 @@ async function renderPedidos(main) {
   main.innerHTML=`
   <div class="adm-hdr"><h1>Pedidos web</h1></div>
   <div class="tbl-wrap"><table><thead><tr><th>N° Pedido</th><th>Cliente</th><th>Tipo</th><th>Cuadro</th><th>Total</th><th>Pago</th><th>Estado</th><th>Entregado</th><th>Ref.</th><th>Fecha</th></tr></thead><tbody>
-  ${(data||[]).map(p=>`<tr>
+  ${(data||[]).map(p=>{
+    const estilos = {
+      pendiente: 'background:#fff8e1;color:#f57f17;border-color:#f9a825',
+      pagado: 'background:#e8f5e9;color:#2e7d32;border-color:#43a047',
+      cancelado: 'background:#fce4ec;color:#c62828;border-color:#e53935',
+    };
+    const estilo = estilos[p.estado_pago] || estilos.pendiente;
+    const entregadoStyle = p.entregado
+      ? 'background:#e8f5e9;border:1px solid #43a047;color:#2e7d32;font-weight:600'
+      : 'background:transparent;border:1px solid var(--lino-osc);color:var(--suave)';
+    return `<tr>
     <td style="font-family:var(--display);font-size:.85rem">${p.numero_pedido}</td>
     <td>${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
     <td style="font-size:.82rem">${{stock:'Stock',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
     <td style="font-size:.85rem">${p.tipos_cuadro?.nombre||'—'}${p.descripcion_personalizado?`<br><span style="font-size:.75rem;color:var(--suave);display:block;max-width:160px">${p.descripcion_personalizado}</span>`:''}${p.tamanio?`<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>`:''}</td>
     <td>${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
     <td style="text-transform:capitalize">${p.metodo_pago||'—'}</td>
-    <td><select style="font-size:.75rem;padding:4px;border:1px solid var(--lino-osc);border-radius:var(--r);background:var(--marfil)" onchange="DB.from('pedidos').update({estado_pago:this.value,updated_at:new Date()}).eq('id','${p.id}').then()">
-      ${['pendiente','pagado','cancelado'].map(e=>`<option value="${e}" ${p.estado_pago===e?'selected':''}>${e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
-    </select></td>
-    <td style="text-align:center"><input type="checkbox" ${p.entregado?'checked':''} onchange="DB.from('pedidos').update({entregado:this.checked}).eq('id','${p.id}').then()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--oro)"/></td>
+    <td>
+      <select onchange="cambiarEstadoPedido('${p.id}',this.value);this.style.cssText='font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;'+(this.value==='pagado'?'background:#e8f5e9;color:#2e7d32;border-color:#43a047':this.value==='cancelado'?'background:#fce4ec;color:#c62828;border-color:#e53935':'background:#fff8e1;color:#f57f17;border-color:#f9a825')"
+        style="font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;${estilo}">
+        ${['pendiente','pagado','cancelado'].map(e=>`<option value="${e}" ${p.estado_pago===e?'selected':''} style="background:white;color:var(--texto)">${e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
+      </select>
+    </td>
+    <td style="text-align:center">
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;transition:var(--tr);${entregadoStyle}" id="lbl-ent-${p.id}">
+        <input type="checkbox" ${p.entregado?'checked':''} onchange="cambiarEntregado('${p.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>
+        ${p.entregado?'✓ Sí':'No'}
+      </label>
+    </td>
     <td>${p.imagen_referencia_url?`<a href="${p.imagen_referencia_url}" target="_blank"><img src="${p.imagen_referencia_url}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc)"/></a>`:'—'}</td>
     <td style="font-size:.8rem">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
-  </tr>`).join('')}
+  </tr>`;}).join('')}
   </tbody></table></div>`;
+}
+
+async function cambiarEstadoPedido(id, estado) {
+  await DB.from('pedidos').update({ estado_pago: estado, updated_at: new Date() }).eq('id', id);
+}
+
+async function cambiarEntregado(id, entregado) {
+  await DB.from('pedidos').update({ entregado, updated_at: new Date() }).eq('id', id);
+  // Actualizar el label visualmente sin recargar toda la tabla
+  const lbl = document.getElementById(`lbl-ent-${id}`);
+  if (lbl) {
+    if (entregado) {
+      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;background:#e8f5e9;border:1px solid #43a047;color:#2e7d32;font-weight:600';
+      lbl.innerHTML = `<input type="checkbox" checked onchange="cambiarEntregado('${id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>✓ Sí`;
+    } else {
+      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;background:transparent;border:1px solid var(--lino-osc);color:var(--suave)';
+      lbl.innerHTML = `<input type="checkbox" onchange="cambiarEntregado('${id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>No`;
+    }
+  }
 }
 
 // ---- COBROS ----
