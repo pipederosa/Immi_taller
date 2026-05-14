@@ -872,21 +872,24 @@ async function confirmarPedido() {
   const { data:pedidoCreado, error } = await DB.from('pedidos').insert(datos).select().single();
   if (error) { alert('Error al procesar. Intentá de nuevo.'); btn.disabled=false; btn.textContent='✓ Confirmar pedido'; return; }
 
-  // Si es stock con unidad real, crear la venta y marcar la unidad como vendida
+  // Crear venta web si es stock o personalizado del archivo
+if (COMPRA.tipo === 'stock' || COMPRA.tipo === 'personalizado_archivo') {
+  // Si es stock con unidad real, marcar la unidad como vendida
   if (COMPRA.unidad?.id && COMPRA.tipo === 'stock') {
     await DB.from('unidades_cuadro').update({estado:'vendido'}).eq('id',COMPRA.unidad.id);
-    await DB.from('ventas').insert({
-      unidad_id: COMPRA.unidad.id,
-      pedido_id: pedidoCreado?.id || null,
-      canal: 'web',
-      cliente_nombre: datos.cliente_nombre,
-      cliente_email: datos.cliente_email,
-      cliente_telefono: datos.cliente_telefono,
-      precio_venta: datos.precio_total,
-      cobrado: false,
-      entregado: false,
-    });
   }
+  await DB.from('ventas').insert({
+    unidad_id: COMPRA.unidad?.id || null,
+    pedido_id: pedidoCreado?.id || null,
+    canal: 'web',
+    cliente_nombre: datos.cliente_nombre,
+    cliente_email: datos.cliente_email,
+    cliente_telefono: datos.cliente_telefono,
+    precio_venta: datos.precio_total,
+    cobrado: false,
+    entregado: false,
+  });
+}
 
   try {
     const ep = {cliente_nombre:datos.cliente_nombre,numero_pedido:datos.numero_pedido,cuadro:COMPRA.tipoCuadro?.nombre||'Personalizado',tamanio:datos.tamanio,precio:COMPRA._precio>0?'$'+Number(COMPRA._precio).toLocaleString('es-AR'):'A definir',zona:datos.zona_envio,metodo_pago:datos.metodo_pago==='efectivo'?'Efectivo':'MercadoPago',to_email:datos.cliente_email,vendedor_email:CFG.email_vendedor};
