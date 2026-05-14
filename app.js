@@ -996,12 +996,12 @@ async function renderKPIs(main) {
   const V = ventas||[], P = pedidos||[];
 
   // Total efectivamente cobrado:
-  // - Ventas presenciales/web: todas las que tienen precio (asumimos cobradas al momento)
-  // - Ventas en consignación: solo las que ya están marcadas como cobradas
-  const cobrado = V.filter(v => v.precio_venta && (v.canal !== 'consignacion' || v.cobrado));
+  // - Cualquier venta (web, presencial o consignación) solo si está marcada como cobrada
+  const cobrado = V.filter(v => v.precio_venta && v.cobrado);
   const totalCobrado = cobrado.reduce((s,v)=>s+(v.precio_venta||0),0);
 
-  const totalPend = V.filter(v=>!v.cobrado && v.canal==='consignacion').reduce((s,v)=>s+(v.precio_venta||0),0);
+  // Pendiente: todas las que tienen precio pero no fueron cobradas
+  const totalPend = V.filter(v=>!v.cobrado && v.precio_venta).reduce((s,v)=>s+(v.precio_venta||0),0);
 
   // Gráfico por mes: solo lo cobrado
   const porMes = {};
