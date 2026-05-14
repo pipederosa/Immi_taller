@@ -5,11 +5,6 @@
 const CONFIG = {
   SUPABASE_URL: 'https://clbhrpjftwjbndmcammm.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsYmhycGpmdHdqYm5kbWNhbW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1Njc4NDUsImV4cCI6MjA5NDE0Mzg0NX0.M4QIyXmr-UEeUr679fM2rU1uUISHyoXO_c86TIsKZc0',
-  EMAILJS_SERVICE_ID: 'service_c0f9srk',
-  EMAILJS_PUBLIC_KEY: 'T-qpaYtHz23IGTriO',
-  EMAILJS_TEMPLATE_CLIENTE: 'template_n1o3ukb',
-  EMAILJS_TEMPLATE_VENDEDOR: 'template_kh6s91d',
-  EMAILJS_TEMPLATE_PERSONALIZADO: 'TU_TEMPLATE_PERSONALIZADO',
 };
 
 // ============================================================
@@ -203,7 +198,6 @@ function init() {
   s.textContent = CSS;
   document.head.appendChild(s);
   DB = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-  emailjs.init(CONFIG.EMAILJS_PUBLIC_KEY);
   window.addEventListener('hashchange', router);
   router();
 }
@@ -899,10 +893,24 @@ if (COMPRA.tipo === 'stock' || COMPRA.tipo === 'personalizado_archivo') {
 }
 
   try {
-    const ep = {cliente_nombre:datos.cliente_nombre,numero_pedido:datos.numero_pedido,cuadro:COMPRA.tipoCuadro?.nombre||'Personalizado',tamanio:datos.tamanio,precio:COMPRA._precio>0?'$'+Number(COMPRA._precio).toLocaleString('es-AR'):'A definir',zona:datos.zona_envio,metodo_pago:datos.metodo_pago==='efectivo'?'Efectivo':'MercadoPago',to_email:datos.cliente_email,vendedor_email:CFG.email_vendedor};
-    if (COMPRA.tipo==='personalizado_nuevo') await emailjs.send(CONFIG.EMAILJS_SERVICE_ID,CONFIG.EMAILJS_TEMPLATE_PERSONALIZADO,{...ep,to_email:CFG.email_vendedor,descripcion:datos.descripcion_personalizado,imagen_ref:datos.imagen_referencia_url||'Sin imagen'});
-    else { await emailjs.send(CONFIG.EMAILJS_SERVICE_ID,CONFIG.EMAILJS_TEMPLATE_CLIENTE,ep); await emailjs.send(CONFIG.EMAILJS_SERVICE_ID,CONFIG.EMAILJS_TEMPLATE_VENDEDOR,{...ep,to_email:CFG.email_vendedor}); }
-  } catch(e){console.warn('Email:',e);}
+  const ep = {
+    cliente_nombre: datos.cliente_nombre,
+    cliente_email: datos.cliente_email,
+    cliente_telefono: datos.cliente_telefono,
+    numero_pedido: datos.numero_pedido,
+    cuadro: COMPRA.tipoCuadro?.nombre || 'Personalizado',
+    tamanio: datos.tamanio,
+    precio: COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir',
+    zona: datos.zona_envio,
+    metodo_pago: datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago',
+    vendedor_email: CFG.email_vendedor,
+    descripcion: datos.descripcion_personalizado,
+    imagen_ref: datos.imagen_referencia_url || 'Sin imagen',
+  };
+  await DB.functions.invoke('enviar-email', {
+    body: { tipo: COMPRA.tipo, datos: ep }
+  });
+} catch(e) { console.warn('Email:', e); }
   COMPRA._numpedido = datos.numero_pedido;
   if (COMPRA.tipo==='personalizado_nuevo') renderPaso(98); else renderPaso(99);
 }
