@@ -976,11 +976,18 @@ async function renderKPIs(main) {
     DB.from('pedidos').select('*'),
   ]);
   const V = ventas||[], P = pedidos||[];
-  const totalVentas = V.filter(v=>v.precio_venta).reduce((s,v)=>s+(v.precio_venta||0),0);
+
+  // Total efectivamente cobrado:
+  // - Ventas presenciales/web: todas las que tienen precio (asumimos cobradas al momento)
+  // - Ventas en consignación: solo las que ya están marcadas como cobradas
+  const cobrado = V.filter(v => v.precio_venta && (v.canal !== 'consignacion' || v.cobrado));
+  const totalCobrado = cobrado.reduce((s,v)=>s+(v.precio_venta||0),0);
+
   const totalPend = V.filter(v=>!v.cobrado && v.canal==='consignacion').reduce((s,v)=>s+(v.precio_venta||0),0);
 
+  // Gráfico por mes: solo lo cobrado
   const porMes = {};
-  V.filter(v=>v.precio_venta && v.created_at).forEach(v=>{
+  cobrado.filter(v=>v.created_at).forEach(v=>{
     const m = String(v.created_at).slice(0,7);
     porMes[m] = (porMes[m]||0) + (v.precio_venta||0);
   });
@@ -990,21 +997,25 @@ async function renderKPIs(main) {
   main.innerHTML=`
   <div class="adm-hdr"><h1>KPIs de ventas</h1></div>
   <div class="stats-grid">
-    <div class="stat"><div class="stat-v">$${Number(totalVentas).toLocaleString('es-AR')}</div><div class="stat-l">Total vendido</div></div>
+    <div class="stat"><div class="stat-v">$${Number(totalCobrado).toLocaleString('es-AR')}</div><div class="stat-l">Total cobrado</div></div>
     <div class="stat"><div class="stat-v">${V.length}</div><div class="stat-l">Ventas totales</div></div>
     <div class="stat"><div class="stat-v">${P.length}</div><div class="stat-l">Pedidos web</div></div>
     <div class="stat"><div class="stat-v" style="color:#f57f17">$${Number(totalPend).toLocaleString('es-AR')}</div><div class="stat-l">Pendiente cobrar</div></div>
   </div>
   <div class="chart-wrap">
-    <div class="chart-tit">Ventas por mes ($)</div>
+    <div class="chart-tit">Cobros por mes ($)</div>
     <div class="bar-chart">
       ${meses.length===0?'<p style="text-align:center;color:var(--suave);align-self:center;width:100%">Sin datos aún</p>':meses.map(m=>{const[y,mo]=m.split('-');const lbl=new Date(y,mo-1).toLocaleDateString('es-AR',{month:'short'});const pct=(porMes[m]/maxV)*100;return`<div class="bar-it"><div class="bar-v">$${Math.round(porMes[m]/1000)}k</div><div class="bar-f" style="height:${Math.max(pct,4)}%"></div><div class="bar-lb">${lbl}</div></div>`;}).join('')}
     </div>
   </div>
   <div class="tbl-wrap">
-    <div class="tbl-hdr"><h3 style="font-family:var(--display);font-size:1.2rem">Ventas por canal</h3></div>
+    <div class="tbl-hdr"><h3 style="font-family:var(--display);font-size:1.2rem">Ventas por canal (solo cobradas)</h3></div>
     <table><thead><tr><th>Canal</th><th>Cantidad</th><th>Total $</th><th>Promedio $</th></tr></thead><tbody>
-    ${[{key:'presencial',l:'Presencial'},{key:'web',l:'Web'},{key:'consignacion',l:'Consignación'}].map(c=>{const vs=V.filter(v=>v.canal===c.key);const t=vs.reduce((s,v)=>s+(v.precio_venta||0),0);return`<tr><td>${c.l}</td><td>${vs.length}</td><td>$${Number(t).toLocaleString('es-AR')}</td><td>$${vs.length?Number(t/vs.length).toLocaleString('es-AR'):'—'}</td></tr>`;}).join('')}
+    ${[{key:'presencial',l:'Presencial'},{key:'web',l:'Web'},{key:'consignacion',l:'Consignación'}].map(c=>{
+      const vs = cobrado.filter(v=>v.canal===c.key);
+      const t = vs.reduce((s,v)=>s+(v.precio_venta||0),0);
+      return `<tr><td>${c.l}</td><td>${vs.length}</td><td>$${Number(t).toLocaleString('es-AR')}</td><td>$${vs.length?Number(t/vs.length).toLocaleString('es-AR'):'—'}</td></tr>`;
+    }).join('')}
     </tbody></table>
   </div>`;
 }
