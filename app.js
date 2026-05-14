@@ -5,6 +5,7 @@
 const CONFIG = {
   SUPABASE_URL: 'https://clbhrpjftwjbndmcammm.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsYmhycGpmdHdqYm5kbWNhbW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1Njc4NDUsImV4cCI6MjA5NDE0Mzg0NX0.M4QIyXmr-UEeUr679fM2rU1uUISHyoXO_c86TIsKZc0',
+  WEB3FORMS_ACCESS_KEY: '954cdbb5-0225-4efa-ad21-3016f1435b72',
 };
 
 // ============================================================
@@ -200,6 +201,28 @@ function init() {
   DB = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
   window.addEventListener('hashchange', router);
   router();
+}
+
+async function enviarEmail(asunto, mensaje, replyTo) {
+  try {
+    const r = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        access_key: CONFIG.WEB3FORMS_ACCESS_KEY,
+        subject: asunto,
+        message: mensaje,
+        from_name: 'Immi Taller - Web',
+        reply_to: replyTo || '',
+      }),
+    });
+    const data = await r.json();
+    console.log('Email enviado:', data);
+    return data.success;
+  } catch (e) {
+    console.warn('Error enviando email:', e);
+    return false;
+  }
 }
 
 function router() {
@@ -892,25 +915,40 @@ if (COMPRA.tipo === 'stock' || COMPRA.tipo === 'personalizado_archivo') {
   });
 }
 
-  try {
-  const ep = {
-    cliente_nombre: datos.cliente_nombre,
-    cliente_email: datos.cliente_email,
-    cliente_telefono: datos.cliente_telefono,
-    numero_pedido: datos.numero_pedido,
-    cuadro: COMPRA.tipoCuadro?.nombre || 'Personalizado',
-    tamanio: datos.tamanio,
-    precio: COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir',
-    zona: datos.zona_envio,
-    metodo_pago: datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago',
-    vendedor_email: CFG.email_vendedor,
-    descripcion: datos.descripcion_personalizado,
-    imagen_ref: datos.imagen_referencia_url || 'Sin imagen',
-  };
-  await DB.functions.invoke('enviar-email', {
-    body: { tipo: COMPRA.tipo, datos: ep }
-  });
-} catch(e) { console.warn('Email:', e); }
+  // Construir mensaje del email
+const datosLinea = (k, v) => `${k}: ${v}\n`;
+const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Personalizado';
+const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir';
+const metodoPago = datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago';
+
+let mensaje = '';
+let asunto = '';
+
+if (COMPRA.tipo === 'personalizado_nuevo') {
+  asunto = `✨ Nuevo pedido personalizado - ${datos.numero_pedido}`;
+  mensaje = `NUEVO PEDIDO PERSONALIZADO\n\n`
+    + datosLinea('Cliente', datos.cliente_nombre)
+    + datosLinea('Email', datos.cliente_email)
+    + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
+    + datosLinea('Zona', datos.zona_envio)
+    + datosLinea('N° Pedido', datos.numero_pedido)
+    + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
+    + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
+} else {
+  asunto = `🛒 Nuevo pedido - ${datos.numero_pedido}`;
+  mensaje = `NUEVO PEDIDO\n\n`
+    + datosLinea('Cliente', datos.cliente_nombre)
+    + datosLinea('Email', datos.cliente_email)
+    + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
+    + datosLinea('N° Pedido', datos.numero_pedido)
+    + datosLinea('Cuadro', cuadroNom)
+    + datosLinea('Tamaño', datos.tamanio || '—')
+    + datosLinea('Total', precioTxt)
+    + datosLinea('Zona', datos.zona_envio)
+    + datosLinea('Forma de pago', metodoPago);
+}
+
+await enviarEmail(asunto, mensaje, datos.cliente_email);
   COMPRA._numpedido = datos.numero_pedido;
   if (COMPRA.tipo==='personalizado_nuevo') renderPaso(98); else renderPaso(99);
 }
