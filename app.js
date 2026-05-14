@@ -1254,15 +1254,31 @@ async function guardarCarga() {
 async function guardarVenta() {
   const unidId = document.getElementById('v-unid-id').value;
   const canal = document.getElementById('v-canal').value;
-  const precio = document.getElementById('v-precio').value;
+  const precioInput = document.getElementById('v-precio').value;
   const lugarId = document.getElementById('v-lugar-id')?.value;
   if (!unidId) { alert('Seleccioná la unidad vendida.'); return; }
   if (canal==='consignacion'&&!lugarId) { alert('Seleccioná el lugar.'); return; }
+
+  // Obtener la unidad para conocer su tamaño
+  const { data:unid } = await DB.from('unidades_cuadro').select('tamanio').eq('id',unidId).single();
+
+  // Calcular precio:
+  // - Si el usuario puso uno manual, usar ese
+  // - Si es consignación, traer de precios_consignacion según tamaño
+  // - Si es presencial, traer de precios web según tamaño
+  // - Si es personalizado, dejar null
+  let precio = precioInput ? Number(precioInput) : null;
+  if (!precio && unid?.tamanio && unid.tamanio !== 'personalizado') {
+    const tabla = canal === 'consignacion' ? 'precios_consignacion' : 'precios';
+    const { data:p } = await DB.from(tabla).select('precio').eq('tamanio', unid.tamanio).maybeSingle();
+    if (p?.precio) precio = Number(p.precio);
+  }
+
   const venta = {
     unidad_id: unidId, canal, lugar_id: lugarId||null,
     cliente_nombre: document.getElementById('v-cliente-nom').value||null,
     cliente_telefono: document.getElementById('v-cliente-tel').value||null,
-    precio_venta: precio?Number(precio):null,
+    precio_venta: precio,
     cobrado: document.getElementById('v-cobrado').checked,
     entregado: document.getElementById('v-entregado').checked,
   };
