@@ -822,18 +822,34 @@ function selPago(met) {
 function actualizarResumen() {
   let precio = 0;
   let cuadroNom = '—';
-  if (COMPRA.unidad && COMPRA.tamanio) precio = PRECIOS[COMPRA.tamanio]||0;
-  if (COMPRA.tipoCuadro) cuadroNom = COMPRA.tipoCuadro.nombre||'—';
-  if (COMPRA.tipo==='personalizado_nuevo') cuadroNom = 'Personalizado nuevo';
-  if (COMPRA.tipo==='personalizado_archivo' && precio) precio = precio*(1+Number(CFG.recargo_personalizado_archivo||10)/100);
+
+  // Determinar nombre del cuadro
+  if (COMPRA.tipo === 'personalizado_nuevo') {
+    cuadroNom = 'Personalizado nuevo';
+  } else if (COMPRA.tipoCuadro) {
+    cuadroNom = COMPRA.tipoCuadro.nombre || '—';
+  }
+
+  // Determinar precio:
+  // - Personalizado nuevo: siempre "a definir" (precio=0)
+  // - Cualquier otra cosa con tamaño 15x15 o 20x20: precio fijo del admin
+  // - Personalizado del archivo: precio del tamaño + 10%
+  if (COMPRA.tipo !== 'personalizado_nuevo' && COMPRA.tamanio && COMPRA.tamanio !== 'personalizado') {
+    precio = PRECIOS[COMPRA.tamanio] || 0;
+    if (COMPRA.tipo === 'personalizado_archivo') {
+      precio = precio * (1 + Number(CFG.recargo_personalizado_archivo || 10) / 100);
+    }
+  }
+
   COMPRA._precio = precio;
-  const el = document.getElementById('resumen'); if(!el) return;
+  const el = document.getElementById('resumen');
+  if (!el) return;
   el.innerHTML = `<h4 style="margin-bottom:16px;font-family:var(--display)">Resumen del pedido</h4>
   <div class="res-item"><span>Cuadro</span><span>${cuadroNom}</span></div>
-  <div class="res-item"><span>Tamaño</span><span>${COMPRA.tamanio||'—'}</span></div>
-  <div class="res-item"><span>Cliente</span><span>${COMPRA._nombre||'—'}</span></div>
-  <div class="res-item"><span>Entrega</span><span>${COMPRA._zona||'—'}</span></div>
-  <div class="res-item res-tot"><span>Total</span><span>${precio>0?'$'+Number(precio).toLocaleString('es-AR'):'A definir'}</span></div>`;
+  <div class="res-item"><span>Tamaño</span><span>${COMPRA.tamanio || '—'}</span></div>
+  <div class="res-item"><span>Cliente</span><span>${COMPRA._nombre || '—'}</span></div>
+  <div class="res-item"><span>Entrega</span><span>${COMPRA._zona || '—'}</span></div>
+  <div class="res-item res-tot"><span>Total</span><span>${precio > 0 ? '$' + Number(precio).toLocaleString('es-AR') : 'A definir'}</span></div>`;
 }
 
 async function confirmarPedido() {
