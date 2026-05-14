@@ -1345,25 +1345,65 @@ async function renderCobros(main) {
           <span>${v.precio_venta?'$'+Number(v.precio_venta).toLocaleString('es-AR'):'A definir'}</span>
         </div>`).join('')}
       </div>
-      <button class="btn btn-green" onclick="registrarCobro('${l.id}','${(l.nombre||'').replace(/'/g,'')}',${total},${JSON.stringify(vs.map(v=>v.id)).replace(/"/g,'&quot;')})">✓ Marcar como cobrado ($${Number(total).toLocaleString('es-AR')})</button>
+      <button class="btn btn-green" onclick="registrarCobro('${l.id}','${(l.nombre||'').replace(/'/g,'')}',${total},${JSON.stringify(vs.map(v=>v.id)).replace(/"/g,'&quot;')})">✓ Marcar como cobrado</button>
     </div>`;
   }).join('')}
   <h3 style="font-family:var(--display);font-size:1.6rem;margin:32px 0 16px">Historial de cobros</h3>
   <div class="tbl-wrap"><table><thead><tr><th>Lugar</th><th>Cuadros</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>
   ${(historial||[]).map(c=>`<tr>
     <td>${c.lugares?.nombre||'—'}</td>
-    <td>${c.cantidad_cuadros}</td>
+    <td>${c.cantidad_cuadros||'—'}</td>
     <td>$${Number(c.monto_total).toLocaleString('es-AR')}</td>
-    <td>${new Date(c.created_at).toLocaleDateString('es-AR')}</td>
+    <td>${c.created_at?new Date(c.created_at).toLocaleDateString('es-AR'):'—'}</td>
   </tr>`).join('')}
-  </tbody></table></div>`;
+  </tbody></table></div>
+
+  <!-- Modal cobro -->
+  <div class="overlay" id="modal-cobro"><div class="modal">
+    <button class="m-close" onclick="cerrarModal('modal-cobro')">✕</button>
+    <h3>💰 Registrar cobro</h3>
+    <p>Estás cobrando de <strong id="cob-lugar-nom"></strong>.</p>
+    <div style="background:var(--lino);border-radius:var(--rm);padding:16px;margin-bottom:24px;font-size:.9rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--suave)">Total sugerido:</span><strong id="cob-total-sug">—</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--suave)">Cuadros incluidos:</span><strong id="cob-cant">—</strong></div>
+    </div>
+    <div class="fg">
+      <label class="fl">Monto cobrado ($) *</label>
+      <input type="number" class="fi" id="cob-monto" style="font-size:1.2rem;font-family:var(--display);text-align:center"/>
+      <p style="font-size:.78rem;color:var(--suave);margin-top:6px">Podés modificar el monto si cobraste algo distinto al total sugerido (descuentos, comisiones, etc.)</p>
+    </div>
+    <div style="display:flex;gap:12px">
+      <button class="btn btn-green" onclick="confirmarCobro()">✓ Confirmar cobro</button>
+      <button class="btn btn-gh" onclick="cerrarModal('modal-cobro')">Cancelar</button>
+    </div>
+  </div></div>`;
 }
 
-async function registrarCobro(lugarId, lugarNom, total, ventaIds) {
-  if (!confirm(`¿Confirmar cobro de $${Number(total).toLocaleString('es-AR')} de ${lugarNom}?`)) return;
-  const { data:cobro, error:ce } = await DB.from('cobros_consignacion').insert({lugar_id:lugarId,monto_total:total,cantidad_cuadros:ventaIds.length,detalle:{ventas:ventaIds}}).select().single();
+function registrarCobro(lugarId, lugarNom, totalSugerido, ventaIds) {
+  // Guardar datos para que el modal los use
+  window._cobroData = { lugarId, lugarNom, totalSugerido, ventaIds };
+  document.getElementById('cob-lugar-nom').textContent = lugarNom;
+  document.getElementById('cob-total-sug').textContent = '$' + Number(totalSugerido).toLocaleString('es-AR');
+  document.getElementById('cob-monto').value = totalSugerido;
+  document.getElementById('cob-cant').textContent = ventaIds.length;
+  document.getElementById('modal-cobro').classList.add('on');
+}
+
+async function confirmarCobro() {
+  const data = window._cobroData;
+  if (!data) return;
+  const monto = Number(document.getElementById('cob-monto').value);
+  if (!monto || monto <= 0) { alert('Ingresá un monto válido.'); return; }
+
+  const { data:cobro, error:ce } = await DB.from('cobros_consignacion').insert({
+    lugar_id: data.lugarId,
+    monto_total: monto,
+    cantidad_cuadros: data.ventaIds.length,
+    detalle: { ventas: data.ventaIds, total_sugerido: data.totalSugerido },
+  }).select().single();
   if (ce) { alert('Error: '+ce.message); return; }
-  await DB.from('ventas').update({cobrado:true,cobro_id:cobro.id}).in('id',ventaIds);
+  await DB.from('ventas').update({ cobrado: true, cobro_id: cobro.id }).in('id', data.ventaIds);
+  cerrarModal('modal-cobro');
   renderCobros(document.getElementById('adm-main'));
 }
 
