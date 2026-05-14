@@ -189,7 +189,7 @@ let PAGINA = 'home';
 let TIPOS_CACHE = [];
 let ARCHIVO_DATA = [];
 let FILTRO_ARCH = 'todos';
-let FILTRO_LUGAR = '';
+let FILTRO_LUGARES = [];
 let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pago:null };
 
 // ============================================================
@@ -382,13 +382,20 @@ function htmlArchivo() {
   return `${htmlNav()}
   <div class="page-hdr"><div class="wrap"><span class="tag">Arte sacro</span><h1>Archivo de obras</h1><p style="color:rgba(244,240,232,.65);margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto">Cada cuadro es único, pintado con fe y dedicación.</p></div></div>
   <div style="background:var(--marfil);min-height:60vh;padding:40px 0"><div class="wrap">
-   <div class="filtros">
-     <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
-     <button class="f-btn" onclick="setFiltroArch(this,'stock')">Solo en stock</button>
-     <select class="fs" id="filtro-lugar" style="width:auto;padding:8px 16px;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase" onchange="setFiltroLugar(this.value)">
-       <option value="">Todos los lugares</option>
-     </select>
+  <div class="filtros">
+  <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
+  <button class="f-btn" onclick="setFiltroArch(this,'stock')">Solo en stock</button>
+  <div style="position:relative">
+    <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Lugares <span id="lugares-count"></span> ▾</button>
+    <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
+      <div id="drop-lugares-content" style="padding:8px 0">Cargando...</div>
+      <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px">
+        <button onclick="limpiarLugares()" style="background:none;border:none;color:var(--suave);font-size:.75rem;cursor:pointer;font-family:var(--body)">Limpiar</button>
+        <button onclick="document.getElementById('drop-lugares').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
+      </div>
+    </div>
    </div>
+  </div>
     <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;padding-bottom:80px">
       <p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">Cargando...</p>
     </div>
@@ -412,10 +419,42 @@ function setFiltroArch(btn, f) {
   btn.classList.add('on'); FILTRO_ARCH=f; renderArchivo();
 }
 
-function setFiltroLugar(lugarId) {
-  FILTRO_LUGAR = lugarId;
+function toggleDropdownLugares() {
+  const d = document.getElementById('drop-lugares');
+  d.style.display = d.style.display === 'block' ? 'none' : 'block';
+}
+
+function toggleLugar(checkbox) {
+  if (checkbox.checked) {
+    if (!FILTRO_LUGARES.includes(checkbox.value)) FILTRO_LUGARES.push(checkbox.value);
+  } else {
+    FILTRO_LUGARES = FILTRO_LUGARES.filter(id => id !== checkbox.value);
+  }
+  actualizarContadorLugares();
   renderArchivo();
 }
+
+function limpiarLugares() {
+  FILTRO_LUGARES = [];
+  document.querySelectorAll('#drop-lugares-content input[type="checkbox"]').forEach(cb => cb.checked = false);
+  actualizarContadorLugares();
+  renderArchivo();
+}
+
+function actualizarContadorLugares() {
+  const el = document.getElementById('lugares-count');
+  if (el) el.textContent = FILTRO_LUGARES.length > 0 ? `(${FILTRO_LUGARES.length})` : '';
+}
+
+// Cerrar dropdown si se clickea afuera
+document.addEventListener('click', (e) => {
+  const drop = document.getElementById('drop-lugares');
+  const btn = document.getElementById('btn-drop-lugares');
+  if (drop && drop.style.display === 'block' && !drop.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    drop.style.display = 'none';
+  }
+});
+
 
 async function cargarArchivo() {
   const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo',true).order('codigo_id');
@@ -427,30 +466,31 @@ async function cargarArchivo() {
   ]);
   ARCHIVO_DATA = tipos.map(t=>({...t,unidades:(unidades||[]).filter(u=>u.tipo_cuadro_id===t.id)}));
 
-  // Llenar el select con TODOS los lugares activos
-  const selLugar = document.getElementById('filtro-lugar');
-  if (selLugar) {
-    selLugar.innerHTML = '<option value="">Todos los lugares</option>' + (todosLugares||[]).map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('');
+  const drop = document.getElementById('drop-lugares-content');
+  if (drop) {
+    drop.innerHTML = (todosLugares||[]).map(l => `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" value="${l.id}" onchange="toggleLugar(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
+        ${l.nombre}
+      </label>
+    `).join('') || '<p style="padding:8px 16px;color:var(--suave);font-size:.85rem">Sin lugares cargados</p>';
   }
+
   renderArchivo();
 }
 
 function renderArchivo() {
   let data = ARCHIVO_DATA;
-
-  // Si ambos filtros activos: muestra los que tienen stock O están en ese lugar
-  // Si solo uno: aplica solo ese
-  // Si ninguno: todos
   const filtroStockActivo = FILTRO_ARCH === 'stock';
-  const filtroLugarActivo = !!FILTRO_LUGAR;
+  const filtroLugarActivo = FILTRO_LUGARES.length > 0;
 
   if (filtroStockActivo || filtroLugarActivo) {
     data = data.filter(t => {
       const tieneStock = t.unidades.some(u=>u.estado==='stock');
-      const enEseLugar = t.unidades.some(u=>u.estado==='consignacion' && u.lugares?.id===FILTRO_LUGAR);
-      if (filtroStockActivo && filtroLugarActivo) return tieneStock || enEseLugar;
+      const enAlgunLugar = t.unidades.some(u=>u.estado==='consignacion' && FILTRO_LUGARES.includes(u.lugares?.id));
+      if (filtroStockActivo && filtroLugarActivo) return tieneStock || enAlgunLugar;
       if (filtroStockActivo) return tieneStock;
-      if (filtroLugarActivo) return enEseLugar;
+      if (filtroLugarActivo) return enAlgunLugar;
       return true;
     });
   }
