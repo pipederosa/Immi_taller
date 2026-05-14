@@ -570,7 +570,7 @@ async function renderSelCuadro(panel) {
   <div id="unid-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:32px">
   ${!unidades||unidades.length===0
     ? `<div style="grid-column:1/-1;text-align:center;padding:32px"><p style="color:var(--suave)">No hay unidades en stock para este criterio.</p><button class="btn btn-o" style="margin-top:16px" onclick="renderPaso(1)">Cambiar selección</button></div>`
-    : unidades.map(u=>`<div class="tipo-card" style="cursor:pointer" id="uc-${u.id}" onclick="selUnidadCompra('${u.id}','${(u.tipos_cuadro?.nombre||'').replace(/'/g,&quot;\\'&quot;)}','${u.tamanio}')">
+    : unidades.map(u=>`<div class="tipo-card" style="cursor:pointer" id="uc-${u.id}" onclick="selUnidadCompra('${u.id}','${(u.tipos_cuadro?.nombre||'').replace(/'/g,"\\'")}','${u.tamanio}')">
         <div class="tipo-img" style="aspect-ratio:1">${u.tipos_cuadro?.imagen_url?`<img src="${u.tipos_cuadro.imagen_url}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;opacity:.2">✝</div>'}</div>
         <div class="tipo-info" style="padding:12px">
           <span class="tipo-cod">${u.tipos_cuadro?.codigo_id||''}</span>
