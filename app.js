@@ -980,7 +980,10 @@ async function renderKPIs(main) {
   const totalPend = V.filter(v=>!v.cobrado && v.canal==='consignacion').reduce((s,v)=>s+(v.precio_venta||0),0);
 
   const porMes = {};
-  V.filter(v=>v.precio_venta).forEach(v=>{ const m=v.created_at.slice(0,7); porMes[m]=(porMes[m]||0)+(v.precio_venta||0); });
+  V.filter(v=>v.precio_venta && v.created_at).forEach(v=>{
+    const m = String(v.created_at).slice(0,7);
+    porMes[m] = (porMes[m]||0) + (v.precio_venta||0);
+  });
   const meses = Object.keys(porMes).sort().slice(-6);
   const maxV = Math.max(...meses.map(m=>porMes[m]),1);
 
