@@ -203,18 +203,20 @@ function init() {
   router();
 }
 
-async function enviarEmail(asunto, mensaje, replyTo) {
+async function enviarEmail(asunto, mensaje, replyTo, ccCliente) {
   try {
+    const body = {
+      access_key: CONFIG.WEB3FORMS_ACCESS_KEY,
+      subject: asunto,
+      message: mensaje,
+      from_name: 'Immi Taller',
+      reply_to: replyTo || '',
+    };
+    if (ccCliente) body.cc = ccCliente;
     const r = await fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        access_key: CONFIG.WEB3FORMS_ACCESS_KEY,
-        subject: asunto,
-        message: mensaje,
-        from_name: 'Immi Taller - Web',
-        reply_to: replyTo || '',
-      }),
+      body: JSON.stringify(body),
     });
     const data = await r.json();
     console.log('Email enviado:', data);
@@ -921,12 +923,9 @@ const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Personalizado';
 const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir';
 const metodoPago = datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago';
 
-let mensaje = '';
-let asunto = '';
-
 if (COMPRA.tipo === 'personalizado_nuevo') {
-  asunto = `✨ Nuevo pedido personalizado - ${datos.numero_pedido}`;
-  mensaje = `NUEVO PEDIDO PERSONALIZADO\n\n`
+  // Solo mail al vendedor (el cliente verá la confirmación en pantalla + WhatsApp)
+  const mensajeVendedor = `NUEVO PEDIDO PERSONALIZADO\n\n`
     + datosLinea('Cliente', datos.cliente_nombre)
     + datosLinea('Email', datos.cliente_email)
     + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
@@ -934,9 +933,10 @@ if (COMPRA.tipo === 'personalizado_nuevo') {
     + datosLinea('N° Pedido', datos.numero_pedido)
     + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
     + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
+  await enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor, datos.cliente_email);
 } else {
-  asunto = `🛒 Nuevo pedido - ${datos.numero_pedido}`;
-  mensaje = `NUEVO PEDIDO\n\n`
+  // Mail al vendedor
+  const mensajeVendedor = `NUEVO PEDIDO\n\n`
     + datosLinea('Cliente', datos.cliente_nombre)
     + datosLinea('Email', datos.cliente_email)
     + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
@@ -946,6 +946,21 @@ if (COMPRA.tipo === 'personalizado_nuevo') {
     + datosLinea('Total', precioTxt)
     + datosLinea('Zona', datos.zona_envio)
     + datosLinea('Forma de pago', metodoPago);
+  await enviarEmail(`🛒 Nuevo pedido - ${datos.numero_pedido}`, mensajeVendedor, datos.cliente_email);
+
+  // Mail al cliente (confirmación)
+  const mensajeCliente = `Hola ${datos.cliente_nombre},\n\n`
+    + `¡Recibimos tu pedido! 🙏\n\n`
+    + `Estos son los detalles:\n\n`
+    + datosLinea('N° de pedido', datos.numero_pedido)
+    + datosLinea('Cuadro', cuadroNom)
+    + datosLinea('Tamaño', datos.tamanio || '—')
+    + datosLinea('Total', precioTxt)
+    + datosLinea('Zona de entrega', datos.zona_envio)
+    + datosLinea('Forma de pago', metodoPago)
+    + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
+    + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
+  await enviarEmail(`✅ Tu pedido en Immi Taller - ${datos.numero_pedido}`, mensajeCliente, null, datos.cliente_email);
 }
 
 await enviarEmail(asunto, mensaje, datos.cliente_email);
