@@ -969,26 +969,98 @@ await enviarEmail(asunto, mensaje, datos.cliente_email);
 }
 
 function htmlExito() {
-  return `<div style="text-align:center;padding:40px 0">
-    <div style="font-size:4rem;margin-bottom:16px">🙏</div>
-    <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:12px">¡Pedido confirmado!</h3>
-    <p style="max-width:480px;margin:0 auto 32px">Gracias por tu compra. Te enviamos un email con los detalles.</p>
-    <p style="font-family:var(--display);font-size:1.2rem;color:var(--oro);margin-bottom:32px">📋 ${COMPRA._numpedido||''}</p>
-    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-      <button class="btn btn-o" onclick="ir('archivo')">Ver más cuadros</button>
-      <button class="btn btn-p" onclick="ir('home')">Volver al inicio</button>
+  const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Cuadro';
+  const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir';
+  const metodoPago = COMPRA.pago === 'efectivo' ? '💵 Efectivo' : '💳 MercadoPago';
+  const igUrl = CFG.instagram_url || '#';
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}` : '#';
+  return `<div style="max-width:560px;margin:0 auto">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#faf5ea,var(--lino));border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">🙏</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px">¡Pedido confirmado!</h3>
+      <p style="font-size:1rem;color:var(--suave);max-width:420px;margin:0 auto">Gracias por confiar en Immi Taller, ${COMPRA._nombre?.split(' ')[0] || ''}. Cada cuadro se entrega con amor.</p>
+    </div>
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px">
+      <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid var(--lino-osc);margin-bottom:16px">
+        <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+        <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${COMPRA._numpedido || ''}</div>
+      </div>
+      <h4 style="font-family:var(--display);margin-bottom:12px">📋 Detalles</h4>
+      <div class="res-item"><span>Cuadro</span><span>${cuadroNom}</span></div>
+      <div class="res-item"><span>Tamaño</span><span>${COMPRA.tamanio || '—'}</span></div>
+      <div class="res-item"><span>Forma de pago</span><span>${metodoPago}</span></div>
+      <div class="res-item"><span>Entrega en</span><span>${COMPRA._zona || '—'}</span></div>
+      <div class="res-item res-tot"><span>Total</span><span>${precioTxt}</span></div>
+    </div>
+
+    <div style="background:#faf5ea;border-left:3px solid var(--oro);padding:20px 24px;border-radius:0 var(--rm) var(--rm) 0;margin-bottom:24px">
+      <h4 style="font-family:var(--display);margin-bottom:12px">✨ ¿Qué sigue?</h4>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto);margin-bottom:8px"><strong>1.</strong> Pao se va a contactar con vos por email o WhatsApp para coordinar.</p>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto);margin-bottom:8px"><strong>2.</strong> Acordamos el lugar y horario de entrega.</p>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto)"><strong>3.</strong> Recibís tu cuadro y abonás ${COMPRA.pago === 'efectivo' ? 'en efectivo' : 'por MercadoPago'}.</p>
+    </div>
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">¿Querés sumar algo, mandar una imagen o tenés dudas?</p>
+      <a href="${waUrl}" target="_blank" class="btn btn-g" style="font-size:.8rem">💬 Escribinos por WhatsApp</a>
+    </div>
+
+    <div style="text-align:center;padding:16px 0">
+      <p style="font-size:.85rem;color:var(--suave);margin-bottom:16px">Seguinos en redes para ver más obras</p>
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+        <a href="${igUrl}" target="_blank" class="btn btn-gh" style="padding:8px 16px;font-size:.75rem">📸 Instagram</a>
+        <a href="${waUrl}" target="_blank" class="btn btn-gh" style="padding:8px 16px;font-size:.75rem">💬 WhatsApp</a>
+      </div>
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-o" onclick="ir('archivo')">Ver más cuadros</button>
+        <button class="btn btn-p" onclick="ir('home')">Volver al inicio</button>
+      </div>
     </div>
   </div>`;
 }
 
 function htmlExitoPersonalizado() {
-  const wa = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}?text=${encodeURIComponent(`🎨 Pedido personalizado\n\nCliente: ${COMPRA._nombre}\nEmail: ${COMPRA._email}\nTel: ${COMPRA._tel||'No indicado'}\nZona: ${COMPRA._zona}\n\nDescripción:\n${COMPRA._desc}\n\nImagen: ${COMPRA._imgref||'Sin imagen'}\n\nN° ${COMPRA._numpedido}`)}` : '#';
-  return `<div style="text-align:center;padding:40px 0">
-    <div style="font-size:4rem;margin-bottom:16px">✨</div>
-    <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:12px">¡Pedido enviado!</h3>
-    <p style="max-width:480px;margin:0 auto 32px">Recibimos tu pedido. Pao se comunica a la brevedad para acordar detalles y precio.</p>
-    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-      <a href="${wa}" target="_blank" class="btn btn-g">💬 Seguir por WhatsApp</a>
+  const waText = encodeURIComponent(`🎨 Pedido personalizado\n\nCliente: ${COMPRA._nombre}\nEmail: ${COMPRA._email}\nTel: ${COMPRA._tel||'No indicado'}\nZona: ${COMPRA._zona}\n\nDescripción:\n${COMPRA._desc}\n\nImagen: ${COMPRA._imgref||'Sin imagen'}\n\nN° ${COMPRA._numpedido}`);
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}?text=${waText}` : '#';
+  const igUrl = CFG.instagram_url || '#';
+  return `<div style="max-width:560px;margin:0 auto">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#faf5ea,var(--lino));border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">✨</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px">¡Recibimos tu pedido!</h3>
+      <p style="font-size:1rem;color:var(--suave);max-width:420px;margin:0 auto">Gracias ${COMPRA._nombre?.split(' ')[0] || ''}, tu pedido personalizado nos llegó.</p>
+    </div>
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px">
+      <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid var(--lino-osc);margin-bottom:16px">
+        <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+        <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${COMPRA._numpedido || ''}</div>
+      </div>
+      <h4 style="font-family:var(--display);margin-bottom:12px">🎨 Tu pedido</h4>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px;color:var(--texto)"><strong>Descripción:</strong></p>
+      <p style="background:var(--lino);padding:12px;border-radius:var(--r);font-size:.9rem;line-height:1.7;margin-bottom:12px">${COMPRA._desc || '—'}</p>
+      ${COMPRA._imgref ? `<p style="font-size:.85rem;color:var(--suave)">📎 Imagen de referencia adjunta</p>` : ''}
+    </div>
+
+    <div style="background:#faf5ea;border-left:3px solid var(--oro);padding:20px 24px;border-radius:0 var(--rm) var(--rm) 0;margin-bottom:24px">
+      <h4 style="font-family:var(--display);margin-bottom:12px">✨ ¿Qué sigue?</h4>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto);margin-bottom:8px"><strong>1.</strong> Pao revisa tu pedido y te contacta por WhatsApp o email.</p>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto);margin-bottom:8px"><strong>2.</strong> Acordamos detalles, tiempos y precio final.</p>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto);margin-bottom:8px"><strong>3.</strong> Pao pinta tu cuadro con dedicación.</p>
+      <p style="font-size:.92rem;line-height:1.7;color:var(--texto)"><strong>4.</strong> Coordinamos la entrega.</p>
+    </div>
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">Para agilizar el contacto, podés escribirnos directo por WhatsApp:</p>
+      <a href="${waUrl}" target="_blank" class="btn btn-g">💬 Continuar por WhatsApp</a>
+    </div>
+
+    <div style="text-align:center;padding:16px 0">
+      <p style="font-size:.85rem;color:var(--suave);margin-bottom:16px">Seguinos en redes para ver más obras</p>
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+        <a href="${igUrl}" target="_blank" class="btn btn-gh" style="padding:8px 16px;font-size:.75rem">📸 Instagram</a>
+        <a href="${waUrl}" target="_blank" class="btn btn-gh" style="padding:8px 16px;font-size:.75rem">💬 WhatsApp</a>
+      </div>
       <button class="btn btn-o" onclick="ir('home')">Volver al inicio</button>
     </div>
   </div>`;
