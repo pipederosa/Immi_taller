@@ -171,7 +171,8 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 @keyframes mIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 .fade{animation:fadeUp .6s ease forwards}
-@media(max-width:900px){.hero-grid,.sobre-grid,.cont-grid{grid-template-columns:1fr;gap:40px}.hero-img{max-height:400px;aspect-ratio:4/3}.precios-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto}.gal-grid{grid-template-columns:repeat(2,1fr)}.adm-layout{grid-template-columns:1fr}.adm-side{display:none}.valores{grid-template-columns:1fr}}
+@media(max-width:900px){.hero-grid,.sobre-grid,.cont-grid{grid-template-columns:1fr;gap:40px}.hero-img{max-height:400px;aspect-ratio:4/3}.precios-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto}.gal-grid{grid-template-columns:repeat(2,1fr)}.adm-layout{grid-template-columns:1fr}.adm-side{position:fixed;top:0;left:-260px;width:240px;height:100vh;z-index:1500;transition:left .3s ease;box-shadow:var(--sombra-f)}.adm-side.open{left:0}.adm-main{padding:80px 20px 40px}.adm-menu-btn{display:flex!important}.adm-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,22,.5);z-index:1400}.adm-overlay.on{display:block}.valores{grid-template-columns:1fr}}
+.adm-menu-btn{display:none;position:fixed;top:16px;left:16px;z-index:1600;background:var(--carbon);color:var(--oro-cl);border:none;width:44px;height:44px;border-radius:var(--r);cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--sombra)}
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
 .hero-slide.on{opacity:1}
 .hero-slide img{width:100%;height:100%;object-fit:cover}
@@ -1091,18 +1092,20 @@ async function admLogin() {
 // ============================================================
 function htmlAdmin() {
   return `<div class="adm-layout">
+    <button class="adm-menu-btn" onclick="document.querySelector('.adm-side').classList.toggle('open');document.querySelector('.adm-overlay').classList.toggle('on')">☰</button>
+    <div class="adm-overlay" onclick="document.querySelector('.adm-side').classList.remove('open');this.classList.remove('on')"></div>
     <aside class="adm-side">
       <div class="adm-logo">Immi taller<br><span style="font-size:.75rem;font-style:normal;color:var(--suave);font-family:var(--body);letter-spacing:.1em">ADMIN</span></div>
       <ul class="adm-nav">
-        <li><button onclick="cargarSecAdmin('kpis')" id="an-kpis" class="on">📊 KPIs de ventas</button></li>
-        <li><button onclick="cargarSecAdmin('catalogo')" id="an-catalogo">🖼️ Catálogo de cuadros</button></li>
-        <li><button onclick="cargarSecAdmin('stock')" id="an-stock">📦 Stock</button></li>
-        <li><button onclick="cargarSecAdmin('pedidos')" id="an-pedidos">📋 Pedidos web</button></li>
-        <li><button onclick="cargarSecAdmin('ventas')" id="an-ventas">🧾 Todas las ventas</button></li>
-        <li><button onclick="cargarSecAdmin('cobros')" id="an-cobros">💰 Cobros consignación</button></li>
-        <li><button onclick="cargarSecAdmin('precios')" id="an-precios">🏷️ Precios</button></li>
-        <li><button onclick="cargarSecAdmin('lugares')" id="an-lugares">📍 Lugares físicos</button></li>
-        <li><button onclick="cargarSecAdmin('config')" id="an-config">⚙️ Configuración</button></li>
+        <li><button onclick="cargarSecAdmin('kpis');cerrarMenuAdmin()" id="an-kpis" class="on">📊 KPIs de ventas</button></li>
+        <li><button onclick="cargarSecAdmin('catalogo');cerrarMenuAdmin()" id="an-catalogo">🖼️ Catálogo de cuadros</button></li>
+        <li><button onclick="cargarSecAdmin('stock');cerrarMenuAdmin()" id="an-stock">📦 Stock</button></li>
+        <li><button onclick="cargarSecAdmin('pedidos');cerrarMenuAdmin()" id="an-pedidos">📋 Pedidos web</button></li>
+        <li><button onclick="cargarSecAdmin('ventas');cerrarMenuAdmin()" id="an-ventas">🧾 Todas las ventas</button></li>
+        <li><button onclick="cargarSecAdmin('cobros');cerrarMenuAdmin()" id="an-cobros">💰 Cobros consignación</button></li>
+        <li><button onclick="cargarSecAdmin('precios');cerrarMenuAdmin()" id="an-precios">🏷️ Precios</button></li>
+        <li><button onclick="cargarSecAdmin('lugares');cerrarMenuAdmin()" id="an-lugares">📍 Lugares físicos</button></li>
+        <li><button onclick="cargarSecAdmin('config');cerrarMenuAdmin()" id="an-config">⚙️ Configuración</button></li>
       </ul>
       <div style="padding:24px;border-top:1px solid rgba(244,240,232,.1);margin-top:auto">
         <button onclick="ir('home')" style="background:none;border:none;color:rgba(244,240,232,.4);font-size:.8rem;cursor:pointer;display:block;margin-bottom:8px;font-family:var(--body)">← Ver sitio</button>
@@ -1126,6 +1129,13 @@ async function cargarSecAdmin(sec) {
   else if (sec==='precios') await renderPrecios(main);
   else if (sec==='lugares') await renderLugares(main);
   else if (sec==='config') await renderConfig(main);
+}
+
+function cerrarMenuAdmin() {
+  if (window.innerWidth <= 900) {
+    document.querySelector('.adm-side')?.classList.remove('open');
+    document.querySelector('.adm-overlay')?.classList.remove('on');
+  }
 }
 
 // ---- KPIs ----
