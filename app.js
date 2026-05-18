@@ -5,7 +5,7 @@
 const CONFIG = {
   SUPABASE_URL: 'https://clbhrpjftwjbndmcammm.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsYmhycGpmdHdqYm5kbWNhbW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1Njc4NDUsImV4cCI6MjA5NDE0Mzg0NX0.M4QIyXmr-UEeUr679fM2rU1uUISHyoXO_c86TIsKZc0',
-  WEB3FORMS_ACCESS_KEY: '954cdbb5-0225-4efa-ad21-3016f1435b72',
+  FORMSUBMIT_EMAIL: 'immitaller@gmail.com',
 };
 
 // ============================================================
@@ -203,18 +203,17 @@ function init() {
   router();
 }
 
-async function enviarEmail(asunto, mensaje, replyTo, emailDestino) {
+async function enviarEmail(asunto, mensaje, ccCliente) {
   try {
     const body = {
-      access_key: CONFIG.WEB3FORMS_ACCESS_KEY,
-      subject: asunto,
+      _subject: asunto,
+      _template: 'box',
+      _captcha: 'false',
       message: mensaje,
-      from_name: 'Immi Taller',
-      reply_to: replyTo || '',
     };
-    // Si querés mandar a un destinatario distinto al default
-    if (emailDestino) body.email = emailDestino;
-    const r = await fetch('https://api.web3forms.com/submit', {
+    if (ccCliente) body._cc = ccCliente;
+
+    const r = await fetch(`https://formsubmit.co/ajax/${CONFIG.FORMSUBMIT_EMAIL}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(body),
@@ -935,6 +934,7 @@ const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleStri
 const metodoPago = datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago';
 
 if (COMPRA.tipo === 'personalizado_nuevo') {
+  // Solo al vendedor (sin CC al cliente porque todavía no hay precio definido)
   const mensajeVendedor = `NUEVO PEDIDO PERSONALIZADO\n\n`
     + datosLinea('Cliente', datos.cliente_nombre)
     + datosLinea('Email', datos.cliente_email)
@@ -943,24 +943,11 @@ if (COMPRA.tipo === 'personalizado_nuevo') {
     + datosLinea('N° Pedido', datos.numero_pedido)
     + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
     + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
-  await enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor, datos.cliente_email);
+  await enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor);
 } else {
-  // Mail al vendedor (sin email destino → va al default)
-  const mensajeVendedor = `NUEVO PEDIDO\n\n`
-    + datosLinea('Cliente', datos.cliente_nombre)
-    + datosLinea('Email', datos.cliente_email)
-    + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
-    + datosLinea('N° Pedido', datos.numero_pedido)
-    + datosLinea('Cuadro', cuadroNom)
-    + datosLinea('Tamaño', datos.tamanio || '—')
-    + datosLinea('Total', precioTxt)
-    + datosLinea('Zona', datos.zona_envio)
-    + datosLinea('Forma de pago', metodoPago);
-  await enviarEmail(`🛒 Nuevo pedido - ${datos.numero_pedido}`, mensajeVendedor, datos.cliente_email);
-
-  // Mail al cliente (con email destino explícito)
-  const mensajeCliente = `Hola ${datos.cliente_nombre},\n\n`
-    + `¡Recibimos tu pedido! 🙏\n\n`
+  // Al vendedor con CC al cliente
+  const mensaje = `Hola ${datos.cliente_nombre},\n\n`
+    + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
     + `Estos son los detalles:\n\n`
     + datosLinea('N° de pedido', datos.numero_pedido)
     + datosLinea('Cuadro', cuadroNom)
@@ -968,9 +955,10 @@ if (COMPRA.tipo === 'personalizado_nuevo') {
     + datosLinea('Total', precioTxt)
     + datosLinea('Zona de entrega', datos.zona_envio)
     + datosLinea('Forma de pago', metodoPago)
+    + datosLinea('Teléfono de contacto', datos.cliente_telefono || 'No indicado')
     + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
     + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
-  await enviarEmail(`✅ Tu pedido en Immi Taller - ${datos.numero_pedido}`, mensajeCliente, null, datos.cliente_email);
+  await enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email);
 }
   
 await enviarEmail(asunto, mensaje, datos.cliente_email);
