@@ -890,7 +890,10 @@ function actualizarResumen() {
 }
 
 async function confirmarPedido() {
-  const btn = document.getElementById('btn-conf'); btn.disabled=true; btn.textContent='Procesando...';
+  const btn = document.getElementById('btn-conf');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+
   const datos = {
     numero_pedido: 'PED-'+Date.now(),
     tipo: COMPRA.tipo,
@@ -906,26 +909,75 @@ async function confirmarPedido() {
     descripcion_personalizado: COMPRA._desc||null,
     imagen_referencia_url: COMPRA._imgref||null,
   };
-  const { data:pedidoCreado, error } = await DB.from('pedidos').insert(datos).select().single();
-  if (error) { alert('Error al procesar. Intentá de nuevo.'); btn.disabled=false; btn.textContent='✓ Confirmar pedido'; return; }
 
-  // Crear venta web si es stock o personalizado del archivo
-if (COMPRA.tipo === 'stock' || COMPRA.tipo === 'personalizado_archivo') {
-  // Si es stock con unidad real, marcar la unidad como vendida
-  if (COMPRA.unidad?.id && COMPRA.tipo === 'stock') {
-    await DB.from('unidades_cuadro').update({estado:'vendido'}).eq('id',COMPRA.unidad.id);
+  const { data:pedidoCreado, error } = await DB.from('pedidos').insert(datos).select().single();
+  if (error) {
+    alert('Error al procesar. Intentá de nuevo.');
+    btn.disabled = false;
+    btn.textContent = '✓ Confirmar pedido';
+    return;
   }
-  await DB.from('ventas').insert({
-    unidad_id: COMPRA.unidad?.id || null,
-    pedido_id: pedidoCreado?.id || null,
-    canal: 'web',
-    cliente_nombre: datos.cliente_nombre,
-    cliente_email: datos.cliente_email,
-    cliente_telefono: datos.cliente_telefono,
-    precio_venta: datos.precio_total,
-    cobrado: false,
-    entregado: false,
-  });
+
+  // Crear venta si corresponde
+  if (COMPRA.tipo === 'stock' || COMPRA.tipo === 'personalizado_archivo') {
+    if (COMPRA.unidad?.id && COMPRA.tipo === 'stock') {
+      await DB.from('unidades_cuadro').update({estado:'vendido'}).eq('id', COMPRA.unidad.id);
+    }
+    await DB.from('ventas').insert({
+      unidad_id: COMPRA.unidad?.id || null,
+      pedido_id: pedidoCreado?.id || null,
+      canal: 'web',
+      cliente_nombre: datos.cliente_nombre,
+      cliente_email: datos.cliente_email,
+      cliente_telefono: datos.cliente_telefono,
+      precio_venta: datos.precio_total,
+      cobrado: false,
+      entregado: false,
+    });
+  }
+
+  COMPRA._numpedido = datos.numero_pedido;
+
+  // Avanzar a la pantalla de éxito ANTES de mandar el email
+  // así no se queda colgado si Formsubmit falla
+  if (COMPRA.tipo === 'personalizado_nuevo') renderPaso(98);
+  else renderPaso(99);
+
+  // Email en segundo plano (sin bloquear la UI)
+  try {
+    const datosLinea = (k, v) => `${k}: ${v}\n`;
+    const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Personalizado';
+    const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir';
+    const metodoPago = datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago';
+
+    if (COMPRA.tipo === 'personalizado_nuevo') {
+      const mensajeVendedor = `NUEVO PEDIDO PERSONALIZADO\n\n`
+        + datosLinea('Cliente', datos.cliente_nombre)
+        + datosLinea('Email', datos.cliente_email)
+        + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
+        + datosLinea('Zona', datos.zona_envio)
+        + datosLinea('N° Pedido', datos.numero_pedido)
+        + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
+        + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
+      enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor);
+    } else {
+      const mensaje = `Hola ${datos.cliente_nombre},\n\n`
+        + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
+        + `Estos son los detalles:\n\n`
+        + datosLinea('N° de pedido', datos.numero_pedido)
+        + datosLinea('Cuadro', cuadroNom)
+        + datosLinea('Tamaño', datos.tamanio || '—')
+        + datosLinea('Total', precioTxt)
+        + datosLinea('Zona de entrega', datos.zona_envio)
+        + datosLinea('Forma de pago', metodoPago)
+        + datosLinea('Teléfono de contacto', datos.cliente_telefono || 'No indicado')
+        + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
+        + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
+      enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email);
+    }
+  } catch (e) {
+    console.warn('Error en email (no crítico):', e);
+  }
 }
 
   // Construir mensaje del email
