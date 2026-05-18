@@ -442,9 +442,9 @@ function htmlArchivo() {
   <div style="background:var(--marfil);min-height:60vh;padding:40px 0"><div class="wrap">
   <div class="filtros">
   <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
-  <button class="f-btn" onclick="setFiltroArch(this,'stock')">Solo en stock</button>
+  <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
   <div style="position:relative">
-    <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Lugares <span id="lugares-count"></span> ▾</button>
+    <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Origen <span id="lugares-count"></span> ▾</button>
     <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
       <div id="drop-lugares-content" style="padding:8px 0">Cargando...</div>
       <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px">
@@ -452,8 +452,8 @@ function htmlArchivo() {
         <button onclick="document.getElementById('drop-lugares').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
       </div>
     </div>
-   </div>
   </div>
+</div>
     <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;padding-bottom:80px">
       <p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">Cargando...</p>
     </div>
@@ -524,14 +524,21 @@ async function cargarArchivo() {
   ]);
   ARCHIVO_DATA = tipos.map(t=>({...t,unidades:(unidades||[]).filter(u=>u.tipo_cuadro_id===t.id)}));
 
+  // Dropdown: primero Web, después cada lugar
   const drop = document.getElementById('drop-lugares-content');
   if (drop) {
-    drop.innerHTML = (todosLugares||[]).map(l => `
+    let opciones = `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s;border-bottom:1px solid var(--lino-osc);margin-bottom:4px" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" value="web" onchange="toggleLugarFiltro(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
+        🌐 Web (stock propio)
+      </label>`;
+    opciones += (todosLugares||[]).map(l => `
       <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
         <input type="checkbox" value="${l.id}" onchange="toggleLugarFiltro(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
-        ${l.nombre}
+        📍 ${l.nombre}
       </label>
-    `).join('') || '<p style="padding:8px 16px;color:var(--suave);font-size:.85rem">Sin lugares cargados</p>';
+    `).join('');
+    drop.innerHTML = opciones;
   }
 
   renderArchivo();
@@ -539,25 +546,28 @@ async function cargarArchivo() {
 
 function renderArchivo() {
   let data = ARCHIVO_DATA;
-  const filtroStockActivo = FILTRO_ARCH === 'stock';
-  const filtroLugarActivo = FILTRO_LUGARES.length > 0;
 
-  if (filtroStockActivo || filtroLugarActivo) {
+  // Filtro "Disponibles": solo los que tienen stock o consignación
+  if (FILTRO_ARCH === 'disponibles') {
+    data = data.filter(t => t.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion'));
+  }
+
+  // Filtro origen (web + lugares específicos)
+  if (FILTRO_LUGARES.length > 0) {
+    const incluyeWeb = FILTRO_LUGARES.includes('web');
+    const lugaresEspecificos = FILTRO_LUGARES.filter(x => x !== 'web');
     data = data.filter(t => {
-      const tieneStock = t.unidades.some(u=>u.estado==='stock');
-      const enAlgunLugar = t.unidades.some(u=>u.estado==='consignacion' && FILTRO_LUGARES.includes(u.lugares?.id));
-      if (filtroStockActivo && filtroLugarActivo) return tieneStock || enAlgunLugar;
-      if (filtroStockActivo) return tieneStock;
-      if (filtroLugarActivo) return enAlgunLugar;
-      return true;
+      const tieneStockWeb = incluyeWeb && t.unidades.some(u => u.estado === 'stock');
+      const enLugarSeleccionado = lugaresEspecificos.length > 0 && t.unidades.some(u => u.estado === 'consignacion' && lugaresEspecificos.includes(u.lugares?.id));
+      return tieneStockWeb || enLugarSeleccionado;
     });
   }
 
-  // Ordenar: primero los que tienen stock o consignación (disponibles), después los sin disponibilidad
+  // Ordenar: primero los disponibles, después los sin stock
   data = [...data].sort((a, b) => {
-    const aDisponible = a.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
-    const bDisponible = b.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
-    return aDisponible - bDisponible;
+    const aDisp = a.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
+    const bDisp = b.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
+    return aDisp - bDisp;
   });
 
   const grid = document.getElementById('archivo-grid');
