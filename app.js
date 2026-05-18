@@ -671,7 +671,7 @@ function renderPaso(paso, sub) {
 
 function htmlPaso1() {
   const ics={'15x15':'🖼️','20x20':'🎨','personalizado':'✨'};
-  const descs={'15x15':'Ideal para regalos','20x20':'El más popular','personalizado':'Tamaño a medida'};
+  const descs={'15x15':'Ideal para regalos','20x20':'El más popular','personalizado':'Tamaño a medida/Imagen a elección'};
   return `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">¿Qué tipo de cuadro querés?</h3>
   <p style="margin-bottom:32px">Elegí el tamaño o si querés un cuadro personalizado</p>
   <div class="tam-grid">${['15x15','20x20','personalizado'].map(t=>`
