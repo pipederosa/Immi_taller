@@ -750,7 +750,7 @@ function renderSelTipoPerso(panel) {
   setStepper(2);
   panel.innerHTML = `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">¿Qué tipo de personalizado?</h3>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0 32px">
-    <div class="tam-opt" onclick="selTipoPerso('archivo')"><div class="tam-ic">🖼️</div><div class="tam-nom" style="font-size:1rem">Del archivo</div><p style="font-size:.8rem;color:var(--suave);margin-top:4px">Un cuadro que ya hicimos, reinterpretado (+10%)</p></div>
+    <div class="tam-opt" onclick="selTipoPerso('archivo')"><div class="tam-ic">🖼️</div><div class="tam-nom" style="font-size:1rem">Del archivo</div><p style="font-size:.8rem;color:var(--suave);margin-top:4px">Un cuadro que ya hicimos, reinterpretado</p></div>
     <div class="tam-opt" onclick="selTipoPerso('nuevo')"><div class="tam-ic">✨</div><div class="tam-nom" style="font-size:1rem">Completamente nuevo</div><p style="font-size:.8rem;color:var(--suave);margin-top:4px">Una idea única, nunca hecha antes</p></div>
   </div>
   <button class="btn btn-gh" onclick="renderPaso(1)">← Volver</button>`;
@@ -767,7 +767,7 @@ async function renderSelTipoArchivo(panel) {
   const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo',true);
   TIPOS_CACHE = tipos||[];
   panel.innerHTML = `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">Elegí el cuadro base</h3>
-  <p style="margin-bottom:24px;color:var(--suave)">Seleccioná qué cuadro querés que recreemos para vos (+10%)</p>
+  <p style="margin-bottom:24px;color:var(--suave)">Seleccioná qué cuadro querés que recreemos para vos </p>
   <div id="arch-sel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:32px">
   ${(tipos||[]).map(t=>`<div class="tipo-card" style="cursor:pointer" id="as-${t.id}" onclick="selTipoCuadroPerso('${t.id}')">
     <div class="tipo-img" style="aspect-ratio:1">${t.imagen_url?`<img src="${t.imagen_url}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;opacity:.2">✝</div>'}</div>
