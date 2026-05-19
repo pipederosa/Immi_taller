@@ -980,45 +980,6 @@ async function confirmarPedido() {
   }
 }
 
-  // Construir mensaje del email
-const datosLinea = (k, v) => `${k}: ${v}\n`;
-const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Personalizado';
-const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir';
-const metodoPago = datos.metodo_pago === 'efectivo' ? 'Efectivo al momento de la entrega' : 'MercadoPago';
-
-if (COMPRA.tipo === 'personalizado_nuevo') {
-  // Solo al vendedor (sin CC al cliente porque todavía no hay precio definido)
-  const mensajeVendedor = `NUEVO PEDIDO PERSONALIZADO\n\n`
-    + datosLinea('Cliente', datos.cliente_nombre)
-    + datosLinea('Email', datos.cliente_email)
-    + datosLinea('Teléfono', datos.cliente_telefono || 'No indicado')
-    + datosLinea('Zona', datos.zona_envio)
-    + datosLinea('N° Pedido', datos.numero_pedido)
-    + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
-    + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
-  await enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor);
-} else {
-  // Al vendedor con CC al cliente
-  const mensaje = `Hola ${datos.cliente_nombre},\n\n`
-    + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
-    + `Estos son los detalles:\n\n`
-    + datosLinea('N° de pedido', datos.numero_pedido)
-    + datosLinea('Cuadro', cuadroNom)
-    + datosLinea('Tamaño', datos.tamanio || '—')
-    + datosLinea('Total', precioTxt)
-    + datosLinea('Zona de entrega', datos.zona_envio)
-    + datosLinea('Forma de pago', metodoPago)
-    + datosLinea('Teléfono de contacto', datos.cliente_telefono || 'No indicado')
-    + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
-    + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
-  await enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email);
-}
-  
-await enviarEmail(asunto, mensaje, datos.cliente_email);
-  COMPRA._numpedido = datos.numero_pedido;
-  if (COMPRA.tipo==='personalizado_nuevo') renderPaso(98); else renderPaso(99);
-}
-
 function htmlExito() {
   const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Cuadro';
   const precioTxt = COMPRA._precio > 0 ? '$' + Number(COMPRA._precio).toLocaleString('es-AR') : 'A definir';
