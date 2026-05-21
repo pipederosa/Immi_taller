@@ -130,7 +130,8 @@ footer{background:var(--carbon);color:rgba(244,240,232,.5);text-align:center;pad
 .m-close:hover{background:var(--carbon);color:var(--lino)} .modal h3{font-family:var(--display);font-size:1.6rem;margin-bottom:12px} .modal p{margin-bottom:24px}
 .m-acts{display:flex;gap:12px;flex-wrap:wrap;flex-direction:column}
 .adm-layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-.adm-side{background:var(--carbon);padding:32px 0;display:flex;flex-direction:column}
+.adm-side{background:var(--carbon);padding:32px 0;display:flex;flex-direction:column;position:fixed;top:0;left:0;width:240px;height:100vh;overflow-y:auto}
+.adm-main{margin-left:240px}
 .adm-logo{font-family:var(--display);font-size:1.4rem;font-style:italic;color:var(--oro);padding:0 24px;margin-bottom:40px}
 .adm-nav{list-style:none;flex:1}
 .adm-nav button{display:flex;align-items:center;gap:12px;padding:14px 24px;color:rgba(244,240,232,.6);font-size:.85rem;letter-spacing:.05em;transition:var(--tr);width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:var(--body)}
@@ -182,7 +183,7 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .adm-layout{grid-template-columns:1fr}
 .adm-side{position:fixed;top:0;left:-260px;width:240px;height:100vh;z-index:1500;transition:left .3s ease;box-shadow:var(--sombra-f);display:flex}
 .adm-side.open{left:0}
-.adm-main{padding:80px 20px 40px}
+.adm-main{padding:80px 20px 40px;margin-left:0}
 .adm-menu-btn{display:flex;position:fixed;top:16px;left:16px;z-index:1600;background:var(--carbon);color:var(--oro-cl);border:none;width:44px;height:44px;border-radius:var(--r);cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--sombra);font-size:1.4rem}
 .adm-overlay{position:fixed;inset:0;background:rgba(44,36,22,.5);z-index:1400}
 .adm-overlay.on{display:block}
