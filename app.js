@@ -129,9 +129,9 @@ footer{background:var(--carbon);color:rgba(244,240,232,.5);text-align:center;pad
 .m-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;border:none;background:var(--lino-osc);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--suave);transition:var(--tr)}
 .m-close:hover{background:var(--carbon);color:var(--lino)} .modal h3{font-family:var(--display);font-size:1.6rem;margin-bottom:12px} .modal p{margin-bottom:24px}
 .m-acts{display:flex;gap:12px;flex-wrap:wrap;flex-direction:column}
-.adm-layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-.adm-side{background:var(--carbon);padding:32px 0;display:flex;flex-direction:column;position:fixed;top:0;left:0;width:240px;height:100vh;overflow-y:auto}
-.adm-main{margin-left:240px}
+.adm-layout{display:block;min-height:100vh}
+.adm-side{background:var(--carbon);padding:32px 0;display:flex;flex-direction:column;position:fixed;top:0;left:0;width:240px;height:100vh;overflow-y:auto;z-index:100}
+.adm-main{margin-left:240px;background:var(--lino);padding:40px;min-height:100vh;overflow-y:auto}
 .adm-logo{font-family:var(--display);font-size:1.4rem;font-style:italic;color:var(--oro);padding:0 24px;margin-bottom:40px}
 .adm-nav{list-style:none;flex:1}
 .adm-nav button{display:flex;align-items:center;gap:12px;padding:14px 24px;color:rgba(244,240,232,.6);font-size:.85rem;letter-spacing:.05em;transition:var(--tr);width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:var(--body)}
