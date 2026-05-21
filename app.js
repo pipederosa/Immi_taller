@@ -312,7 +312,7 @@ function initNavScroll() {
 function htmlFooter() {
   return `<footer><div class="wrap">
     <span class="foot-logo">Immi taller</span>
-    <p>Arte sacro pintado a mano · por Pao Navedo</p>
+    <p>Arte católico pintado a mano · por Pao Navedo</p>
     <p style="margin-top:8px">© ${new Date().getFullYear()} Immi Taller</p>
     <p style="margin-top:32px"><button onclick="ir('admin-login')" style="background:none;border:none;cursor:pointer;color:rgba(244,240,232,0.12);font-size:.7rem;font-family:var(--body);letter-spacing:.1em">admin</button></p>
   </div></footer>`;
@@ -330,7 +330,7 @@ function htmlHome() {
   return `${htmlNav()}
   <section id="hero"><div class="hero-grid">
     <div class="fade">
-      <div class="hero-orn">Arte Sacro · Hecho a mano</div>
+      <div class="hero-orn">Arte Católico · Hecho a mano</div>
       <h1>Immi<br><em>taller</em></h1>
       <p class="hero-sub">por Pao Navedo</p>
       <p class="hero-desc">${CFG.descripcion_emprendimiento||'Arte que ora. Cuadros pintados con devoción en acrílico, óleo y acuarela, llevando la fe y la belleza sacra a cada hogar.'}</p>
@@ -454,7 +454,7 @@ function iniciarSlideshow(total) {
 // ============================================================
 function htmlArchivo() {
   return `${htmlNav()}
-  <div class="page-hdr"><div class="wrap"><span class="tag">Arte sacro</span><h1>Archivo de obras</h1><p style="color:rgba(244,240,232,.65);margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto">Cada cuadro es único, pintado con fe y dedicación.</p></div></div>
+  <div class="page-hdr"><div class="wrap"><span class="tag">Arte católico</span><h1>Archivo de obras</h1><p style="color:rgba(244,240,232,.65);margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto">Cada cuadro es único, pintado con fe y dedicación.</p></div></div>
   <div style="background:var(--marfil);min-height:60vh;padding:40px 0"><div class="wrap">
   <div class="filtros">
   <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
