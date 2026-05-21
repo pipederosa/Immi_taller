@@ -12,6 +12,23 @@
 </head>
 <body>
 <div id="app"></div>
+<!-- Form de Netlify (oculto, solo para que Netlify lo detecte) -->
+<form name="pedido-immi" netlify netlify-honeypot="bot-field" hidden>
+  <input type="hidden" name="form-name" value="pedido-immi" />
+  <input type="text" name="cliente_nombre" />
+  <input type="email" name="cliente_email" />
+  <input type="text" name="cliente_telefono" />
+  <input type="text" name="numero_pedido" />
+  <input type="text" name="cuadro" />
+  <input type="text" name="tamanio" />
+  <input type="text" name="precio" />
+  <input type="text" name="zona" />
+  <input type="text" name="metodo_pago" />
+  <input type="text" name="tipo_pedido" />
+  <textarea name="descripcion"></textarea>
+  <input type="text" name="imagen_ref" />
+  <input type="text" name="bot-field" />
+</form>
 <script src="app.js"></script>
 </body>
 </html>
