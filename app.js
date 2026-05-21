@@ -204,26 +204,27 @@ function init() {
   router();
 }
 
-async function enviarEmail(asunto, mensaje, ccCliente) {
+async function enviarEmail(asunto, mensaje, ccCliente, datosForm) {
   try {
-    const body = {
-      _subject: asunto,
-      _template: 'box',
-      _captcha: 'false',
-      message: mensaje,
-    };
-    if (ccCliente) body._cc = ccCliente;
-
-    const r = await fetch(`https://formsubmit.co/ajax/${CONFIG.FORMSUBMIT_EMAIL}`, {
+    const formData = new URLSearchParams();
+    formData.append('form-name', 'pedido-immi');
+    formData.append('_subject', asunto);
+    formData.append('message_completo', mensaje);
+    // Datos individuales para que Netlify los muestre bien en el dashboard
+    if (datosForm) {
+      Object.entries(datosForm).forEach(([k, v]) => {
+        formData.append(k, v || '');
+      });
+    }
+    const r = await fetch('/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
     });
-    const data = await r.json();
-    console.log('Email enviado:', data);
-    return data.success;
+    console.log('Form enviado a Netlify:', r.status);
+    return r.ok;
   } catch (e) {
-    console.warn('Error enviando email:', e);
+    console.warn('Error enviando form:', e);
     return false;
   }
 }
@@ -959,7 +960,16 @@ async function confirmarPedido() {
         + datosLinea('N° Pedido', datos.numero_pedido)
         + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
         + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
-      enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor);
+      enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor, null, {
+  cliente_nombre: datos.cliente_nombre,
+  cliente_email: datos.cliente_email,
+  cliente_telefono: datos.cliente_telefono || '',
+  numero_pedido: datos.numero_pedido,
+  zona: datos.zona_envio,
+  tipo_pedido: 'Personalizado nuevo',
+  descripcion: datos.descripcion_personalizado || '',
+  imagen_ref: datos.imagen_referencia_url || '',
+});
     } else {
       const mensaje = `Hola ${datos.cliente_nombre},\n\n`
         + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
@@ -973,7 +983,18 @@ async function confirmarPedido() {
         + datosLinea('Teléfono de contacto', datos.cliente_telefono || 'No indicado')
         + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
         + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
-      enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email);
+      enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email, {
+  cliente_nombre: datos.cliente_nombre,
+  cliente_email: datos.cliente_email,
+  cliente_telefono: datos.cliente_telefono || '',
+  numero_pedido: datos.numero_pedido,
+  cuadro: cuadroNom,
+  tamanio: datos.tamanio || '',
+  precio: precioTxt,
+  zona: datos.zona_envio,
+  metodo_pago: metodoPago,
+  tipo_pedido: COMPRA.tipo === 'stock' ? 'Stock' : 'Personalizado del archivo',
+});
     }
   } catch (e) {
     console.warn('Error en email (no crítico):', e);
