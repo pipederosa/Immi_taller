@@ -1628,24 +1628,12 @@ async function renderVentas(main) {
   </tbody></table></div>`;
 }
 
-async function cambiarCobradoVenta(id, cobrado) {
-  await DB.from('ventas').update({ cobrado }).eq('id', id);
-  renderVentas(document.getElementById('adm-main'));
-}
-
-async function cambiarEntregadoVenta(id, entregado) {
-  await DB.from('ventas').update({ entregado }).eq('id', id);
-  renderVentas(document.getElementById('adm-main'));
-}
-
+// PEDIDOS WEB → sincroniza con VENTAS
 async function cambiarEstadoPedido(id, estado) {
   await DB.from('pedidos').update({ estado_pago: estado, updated_at: new Date() }).eq('id', id);
-  // Si pasa a pagado, marcar la venta asociada como cobrada
-  if (estado === 'pagado') {
-    await DB.from('ventas').update({ cobrado: true }).eq('pedido_id', id);
-  } else {
-    await DB.from('ventas').update({ cobrado: false }).eq('pedido_id', id);
-  }
+  // Si pasa a pagado, marcar la venta como cobrada (y viceversa)
+  const cobrado = estado === 'pagado';
+  await DB.from('ventas').update({ cobrado }).eq('pedido_id', id);
 }
 
 async function cambiarEntregado(id, entregado) {
@@ -1664,19 +1652,28 @@ async function cambiarEntregado(id, entregado) {
   }
 }
 
-async function cambiarEntregado(id, entregado) {
-  await DB.from('pedidos').update({ entregado, updated_at: new Date() }).eq('id', id);
-  // Actualizar el label visualmente sin recargar toda la tabla
-  const lbl = document.getElementById(`lbl-ent-${id}`);
-  if (lbl) {
-    if (entregado) {
-      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;background:#e8f5e9;border:1px solid #43a047;color:#2e7d32;font-weight:600';
-      lbl.innerHTML = `<input type="checkbox" checked onchange="cambiarEntregado('${id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>✓ Sí`;
-    } else {
-      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;background:transparent;border:1px solid var(--lino-osc);color:var(--suave)';
-      lbl.innerHTML = `<input type="checkbox" onchange="cambiarEntregado('${id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>No`;
-    }
+// TODAS LAS VENTAS → sincroniza con PEDIDOS
+async function cambiarCobradoVenta(id, cobrado) {
+  // Obtener la venta para saber si tiene pedido_id asociado
+  const { data:venta } = await DB.from('ventas').select('pedido_id').eq('id', id).single();
+  await DB.from('ventas').update({ cobrado }).eq('id', id);
+  // Si la venta está vinculada a un pedido, actualizar también el pedido
+  if (venta?.pedido_id) {
+    await DB.from('pedidos').update({
+      estado_pago: cobrado ? 'pagado' : 'pendiente',
+      updated_at: new Date(),
+    }).eq('id', venta.pedido_id);
   }
+  renderVentas(document.getElementById('adm-main'));
+}
+
+async function cambiarEntregadoVenta(id, entregado) {
+  const { data:venta } = await DB.from('ventas').select('pedido_id').eq('id', id).single();
+  await DB.from('ventas').update({ entregado }).eq('id', id);
+  if (venta?.pedido_id) {
+    await DB.from('pedidos').update({ entregado, updated_at: new Date() }).eq('id', venta.pedido_id);
+  }
+  renderVentas(document.getElementById('adm-main'));
 }
 
 // ---- COBROS ----
