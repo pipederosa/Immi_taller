@@ -246,6 +246,12 @@ async function enviarEmail(asunto, mensaje, ccCliente, datosForm) {
 
 function router() {
   const h = location.hash || '#home';
+
+  // Rutas de retorno de MercadoPago
+  if (h.startsWith('#pago-exitoso')) { render('pago-exitoso'); return; }
+  if (h.startsWith('#pago-pendiente')) { render('pago-pendiente'); return; }
+  if (h.startsWith('#pago-rechazado')) { render('pago-rechazado'); return; }
+
   if (h === '#archivo') render('archivo');
   else if (h === '#compra') render('compra');
   else if (h === '#admin-login') render('admin-login');
@@ -268,6 +274,9 @@ async function render(pag) {
   else if (pag === 'archivo') { app.innerHTML = htmlArchivo(); cargarArchivo(); }
   else if (pag === 'compra') { app.innerHTML = htmlCompra(); initCompra(); }
   else if (pag === 'admin-login') app.innerHTML = htmlAdminLogin();
+  else if (pag === 'pago-exitoso') app.innerHTML = htmlPagoExitoso();
+  else if (pag === 'pago-pendiente') app.innerHTML = htmlPagoPendiente();
+  else if (pag === 'pago-rechazado') app.innerHTML = htmlPagoRechazado();
   else if (pag === 'admin') {
     const { data:{ session } } = await DB.auth.getSession();
     if (!session) { ir('admin-login'); return; }
@@ -954,12 +963,46 @@ async function confirmarPedido() {
 
   COMPRA._numpedido = datos.numero_pedido;
 
-  // Avanzar a la pantalla de éxito ANTES de mandar el email
-  // así no se queda colgado si Formsubmit falla
+  // Si eligió MercadoPago Y hay precio definido → redirigir a MP
+  if (COMPRA.pago === 'mercadopago' && datos.precio_total > 0) {
+    try {
+      const r = await fetch('/.netlify/functions/crear-preferencia-mp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pedidoId: pedidoCreado.id,
+          numeroPedido: datos.numero_pedido,
+          cuadroNombre: COMPRA.tipoCuadro?.nombre || 'Cuadro personalizado',
+          precio: datos.precio_total,
+          clienteEmail: datos.cliente_email,
+          clienteNombre: datos.cliente_nombre,
+        }),
+      });
+      const result = await r.json();
+      if (result.init_point) {
+        // Mandar email al vendedor avisando del nuevo pedido (en segundo plano)
+        enviarEmailPedido(datos);
+        // Redirigir a MercadoPago
+        window.location.href = result.init_point;
+        return;
+      } else {
+        alert('Hubo un problema con MercadoPago. Tu pedido fue registrado, te contactaremos para coordinar el pago.');
+      }
+    } catch (e) {
+      console.warn('Error MP:', e);
+      alert('Hubo un problema con MercadoPago. Tu pedido fue registrado, te contactaremos para coordinar el pago.');
+    }
+  }
+
+  // Para pedidos en efectivo o personalizados nuevos → pantalla normal de éxito
   if (COMPRA.tipo === 'personalizado_nuevo') renderPaso(98);
   else renderPaso(99);
 
-  // Email en segundo plano (sin bloquear la UI)
+  // Email al vendedor
+  enviarEmailPedido(datos);
+}
+
+function enviarEmailPedido(datos) {
   try {
     const datosLinea = (k, v) => `${k}: ${v}\n`;
     const cuadroNom = COMPRA.tipoCuadro?.nombre || 'Personalizado';
@@ -976,15 +1019,15 @@ async function confirmarPedido() {
         + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
         + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
       enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor, null, {
-  cliente_nombre: datos.cliente_nombre,
-  cliente_email: datos.cliente_email,
-  cliente_telefono: datos.cliente_telefono || '',
-  numero_pedido: datos.numero_pedido,
-  zona: datos.zona_envio,
-  tipo_pedido: 'Personalizado nuevo',
-  descripcion: datos.descripcion_personalizado || '',
-  imagen_ref: datos.imagen_referencia_url || '',
-});
+        cliente_nombre: datos.cliente_nombre,
+        cliente_email: datos.cliente_email,
+        cliente_telefono: datos.cliente_telefono || '',
+        numero_pedido: datos.numero_pedido,
+        zona: datos.zona_envio,
+        tipo_pedido: 'Personalizado nuevo',
+        descripcion: datos.descripcion_personalizado || '',
+        imagen_ref: datos.imagen_referencia_url || '',
+      });
     } else {
       const mensaje = `Hola ${datos.cliente_nombre},\n\n`
         + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
@@ -999,21 +1042,106 @@ async function confirmarPedido() {
         + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
         + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
       enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email, {
-  cliente_nombre: datos.cliente_nombre,
-  cliente_email: datos.cliente_email,
-  cliente_telefono: datos.cliente_telefono || '',
-  numero_pedido: datos.numero_pedido,
-  cuadro: cuadroNom,
-  tamanio: datos.tamanio || '',
-  precio: precioTxt,
-  zona: datos.zona_envio,
-  metodo_pago: metodoPago,
-  tipo_pedido: COMPRA.tipo === 'stock' ? 'Stock' : 'Personalizado del archivo',
-});
+        cliente_nombre: datos.cliente_nombre,
+        cliente_email: datos.cliente_email,
+        cliente_telefono: datos.cliente_telefono || '',
+        numero_pedido: datos.numero_pedido,
+        cuadro: cuadroNom,
+        tamanio: datos.tamanio || '',
+        precio: precioTxt,
+        zona: datos.zona_envio,
+        metodo_pago: metodoPago,
+        tipo_pedido: COMPRA.tipo === 'stock' ? 'Stock' : 'Personalizado del archivo',
+      });
     }
   } catch (e) {
-    console.warn('Error en email (no crítico):', e);
+    console.warn('Error en email:', e);
   }
+}
+
+function htmlPagoExitoso() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const numPedido = params.get('pedido') || '';
+  const igUrl = CFG.instagram_url || '#';
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}` : '#';
+  return `${htmlNav()}
+  <div class="page-hdr"><div class="wrap"><span class="tag">✅ Pago confirmado</span><h1>¡Gracias!</h1></div></div>
+  <div style="background:var(--marfil);padding:60px 0;min-height:60vh"><div class="wrap" style="max-width:560px">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">🎉</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px;color:#2e7d32">¡Pago exitoso!</h3>
+      <p style="font-size:1rem;color:var(--suave)">Tu pago fue acreditado correctamente.</p>
+    </div>
+    ${numPedido?`<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px;text-align:center">
+      <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+      <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${numPedido}</div>
+    </div>`:''}
+    <div style="background:#faf5ea;border-left:3px solid var(--oro);padding:20px 24px;border-radius:0 var(--rm) var(--rm) 0;margin-bottom:24px">
+      <h4 style="font-family:var(--display);margin-bottom:12px">✨ ¿Qué sigue?</h4>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>1.</strong> Pao se contactará con vos para coordinar la entrega.</p>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>2.</strong> Acordamos lugar y horario.</p>
+      <p style="font-size:.92rem;line-height:1.7"><strong>3.</strong> Recibís tu cuadro pintado a mano.</p>
+    </div>
+    <div style="text-align:center">
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <a href="${waUrl}" target="_blank" class="btn btn-g">💬 WhatsApp</a>
+        <a href="${igUrl}" target="_blank" class="btn btn-gh">📸 Instagram</a>
+      </div>
+      <button class="btn btn-p" onclick="ir('home')">Volver al inicio</button>
+    </div>
+  </div></div>
+  ${htmlFooter()}`;
+}
+
+function htmlPagoPendiente() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const numPedido = params.get('pedido') || '';
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}` : '#';
+  return `${htmlNav()}
+  <div class="page-hdr"><div class="wrap"><span class="tag">⏳ Pago pendiente</span><h1>Tu pedido está en proceso</h1></div></div>
+  <div style="background:var(--marfil);padding:60px 0;min-height:60vh"><div class="wrap" style="max-width:560px">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#fff8e1,#ffe082);border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">⏳</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px;color:#f57f17">Pago en proceso</h3>
+      <p style="font-size:1rem;color:var(--suave)">Tu pago está siendo procesado por MercadoPago.</p>
+    </div>
+    ${numPedido?`<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px;text-align:center">
+      <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+      <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${numPedido}</div>
+    </div>`:''}
+    <p style="text-align:center;margin-bottom:24px">Te confirmaremos por email cuando se acredite el pago. Si pasaron 24 hs y no recibiste novedades, escribinos por WhatsApp con tu número de pedido.</p>
+    <div style="text-align:center">
+      <a href="${waUrl}" target="_blank" class="btn btn-g" style="margin-bottom:16px">💬 Consultar por WhatsApp</a>
+      <br>
+      <button class="btn btn-p" onclick="ir('home')">Volver al inicio</button>
+    </div>
+  </div></div>
+  ${htmlFooter()}`;
+}
+
+function htmlPagoRechazado() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const numPedido = params.get('pedido') || '';
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}` : '#';
+  return `${htmlNav()}
+  <div class="page-hdr"><div class="wrap"><span class="tag">❌ Pago no aprobado</span><h1>El pago no se completó</h1></div></div>
+  <div style="background:var(--marfil);padding:60px 0;min-height:60vh"><div class="wrap" style="max-width:560px">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">❌</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px;color:#c62828">Pago rechazado</h3>
+      <p style="font-size:1rem;color:var(--suave)">El pago no pudo completarse.</p>
+    </div>
+    ${numPedido?`<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px;text-align:center">
+      <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+      <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${numPedido}</div>
+    </div>`:''}
+    <p style="text-align:center;margin-bottom:24px">Podés intentar de nuevo, o escribinos por WhatsApp para coordinar otra forma de pago.</p>
+    <div style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="ir('compra')">Volver a intentar</button>
+      <a href="${waUrl}" target="_blank" class="btn btn-g">💬 WhatsApp</a>
+    </div>
+  </div></div>
+  ${htmlFooter()}`;
 }
 
 function htmlExito() {
