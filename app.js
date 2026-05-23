@@ -585,36 +585,46 @@ function iniciarSlideshow(total) {
 // ============================================================
 function htmlArchivo() {
   return `${htmlNav()}
-  <div class="page-hdr"><div class="wrap"><span class="tag">Arte católico</span><h1>Archivo de obras</h1><p style="color:rgba(244,240,232,.65);margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto">Cada cuadro es único, pintado con fe y dedicación.</p></div></div>
+  <div class="page-hdr"><div class="wrap"><span class="tag">Arte sacro</span><h1>Archivo de obras</h1><p style="color:rgba(244,240,232,.65);margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto">Cada cuadro es único, pintado con fe y dedicación.</p></div></div>
   <div style="background:var(--marfil);min-height:60vh;padding:40px 0"><div class="wrap">
-  <div class="filtros">
-  <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
-  <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
-  <div style="position:relative">
-    <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Origen <span id="lugares-count"></span> ▾</button>
-    <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
-      <div id="drop-lugares-content" style="padding:8px 0">Cargando...</div>
-      <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px">
-        <button onclick="limpiarLugares()" style="background:none;border:none;color:var(--suave);font-size:.75rem;cursor:pointer;font-family:var(--body)">Limpiar</button>
-        <button onclick="document.getElementById('drop-lugares').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
+
+    <!-- Banner personalizado -->
+    <div style="background:linear-gradient(135deg,var(--carbon) 0%,#3d3020 100%);color:var(--lino);border-radius:var(--rm);padding:32px;margin-bottom:40px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div>
+        <span style="font-size:.75rem;letter-spacing:.25em;text-transform:uppercase;color:var(--oro-cl);display:block;margin-bottom:8px">✨ A medida</span>
+        <h3 style="font-family:var(--display);font-size:1.8rem;color:var(--lino);margin-bottom:4px">Encargá tu propio diseño</h3>
+        <p style="color:rgba(244,240,232,.7);font-size:.95rem">Un cuadro único hecho especialmente para vos.</p>
+      </div>
+      <button class="btn btn-g" onclick="ir('personalizado')" style="font-size:.85rem;padding:16px 32px">🎨 Encargar mi cuadro</button>
+    </div>
+
+    <div class="filtros">
+      <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
+      <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
+      <div style="position:relative">
+        <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Origen <span id="lugares-count"></span> ▾</button>
+        <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
+          <div id="drop-lugares-content" style="padding:8px 0">Cargando...</div>
+          <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px">
+            <button onclick="limpiarLugares()" style="background:none;border:none;color:var(--suave);font-size:.75rem;cursor:pointer;font-family:var(--body)">Limpiar</button>
+            <button onclick="document.getElementById('drop-lugares').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
-    <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;padding-bottom:80px">
+
+    <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;padding-bottom:40px">
       <p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">Cargando...</p>
     </div>
-  </div></div>
-  <div class="overlay" id="modal-cons"><div class="modal">
-    <button class="m-close" onclick="cerrarModal('modal-cons')">✕</button>
-    <div style="text-align:center;font-size:2rem;margin-bottom:12px">⛪</div>
-    <h3>Cuadro en consignación</h3>
-    <p>Este cuadro está disponible en estos locales:</p>
-    <div id="cons-lista" style="margin-bottom:24px"></div>
-    <div class="m-acts">
-      <button class="btn btn-o" id="btn-comp-pers-cons">🎨 Encargar versión personalizada</button>
-      <button class="btn btn-gh" onclick="cerrarModal('modal-cons')">Cerrar</button>
+
+    <!-- Banner personalizado al final también -->
+    <div style="background:linear-gradient(135deg,#faf5ea,var(--lino));border:2px dashed var(--oro);border-radius:var(--rm);padding:40px;text-align:center;margin-top:24px">
+      <div style="font-size:3rem;margin-bottom:12px">✨</div>
+      <h3 style="font-family:var(--display);font-size:1.8rem;margin-bottom:8px">¿No encontrás lo que buscás?</h3>
+      <p style="margin-bottom:24px;max-width:480px;margin-left:auto;margin-right:auto">Podemos pintar el cuadro que tengas en mente, con tu propio diseño, colores y tamaño.</p>
+      <button class="btn btn-p" onclick="ir('personalizado')" style="font-size:.85rem;padding:16px 32px">🎨 Encargá tu propio diseño</button>
     </div>
+
   </div></div>
   ${htmlFooter()}`;
 }
@@ -693,14 +703,14 @@ async function cargarArchivo() {
 
 function renderArchivo() {
   let data = ARCHIVO_DATA;
+  const filtroDispActivo = FILTRO_ARCH === 'disponibles';
+  const filtroLugarActivo = FILTRO_LUGARES.length > 0;
 
-  // Filtro "Disponibles": solo los que tienen stock o consignación
-  if (FILTRO_ARCH === 'disponibles') {
+  if (filtroDispActivo) {
     data = data.filter(t => t.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion'));
   }
 
-  // Filtro origen (web + lugares específicos)
-  if (FILTRO_LUGARES.length > 0) {
+  if (filtroLugarActivo) {
     const incluyeWeb = FILTRO_LUGARES.includes('web');
     const lugaresEspecificos = FILTRO_LUGARES.filter(x => x !== 'web');
     data = data.filter(t => {
@@ -710,7 +720,7 @@ function renderArchivo() {
     });
   }
 
-  // Ordenar: primero los disponibles, después los sin stock
+  // Ordenar: disponibles primero
   data = [...data].sort((a, b) => {
     const aDisp = a.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
     const bDisp = b.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
@@ -720,52 +730,31 @@ function renderArchivo() {
   const grid = document.getElementById('archivo-grid');
   if (!grid) return;
   if (data.length===0) { grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>'; return; }
-  grid.innerHTML = data.map(t=>{
+
+  grid.innerHTML = data.map(t => {
     const enS = t.unidades.filter(u=>u.estado==='stock');
     const enC = t.unidades.filter(u=>u.estado==='consignacion');
-    const sinStock = enS.length===0 && enC.length===0;
+    const sinDispo = enS.length===0 && enC.length===0;
     const porLugar = {};
-    enC.forEach(u=>{ const n=u.lugares?.nombre||'Sin nombre'; porLugar[n]=(porLugar[n]||0)+1; });
-    const tams = [...new Set(t.unidades.map(u=>u.tamanio))];
+    enC.forEach(u => { const n = u.lugares?.nombre || 'Sin nombre'; porLugar[n] = (porLugar[n]||0) + 1; });
+
     return `<div class="tipo-card">
       <div class="tipo-img">
         ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}
-        ${sinStock?'<div class="tipo-sin-stock">Sin stock</div>':''}
+        ${sinDispo?'<div class="tipo-sin-stock">Sin stock</div>':''}
       </div>
       <div class="tipo-info">
         <span class="tipo-cod">${t.codigo_id}</span>
         <div class="tipo-nom">${t.nombre}</div>
-        ${t.descripcion?`<p style="font-size:.82rem;margin-bottom:12px">${t.descripcion}</p>`:''}
-        ${tams.length?`<p style="font-size:.78rem;color:var(--suave);margin-bottom:8px">Tamaños: ${tams.join(', ')}</p>`:''}
         ${enS.length?`<div class="tipo-stock-row"><span class="badge b-stock">En stock</span><span style="color:var(--suave)">${enS.length} disponible${enS.length!==1?'s':''}</span></div>`:''}
         ${Object.entries(porLugar).map(([lugar,cant])=>`<div class="tipo-stock-row"><span class="badge b-cons">Consignación</span><span style="color:var(--suave)">${cant} en ${lugar}</span></div>`).join('')}
-        ${sinStock?'<p style="font-size:.82rem;color:#c62828;margin-top:4px">Sin disponibilidad por ahora</p>':''}
-        ${enC.length>0?'<p style="font-size:.78rem;color:var(--suave);margin-top:6px">Precio: a definir según lugar</p>':''}
+        ${sinDispo?'<p style="font-size:.82rem;color:var(--suave);margin-top:4px">Disponible bajo encargo</p>':''}
       </div>
       <div class="tipo-acc">
-        ${enS.length>0?`<button class="btn btn-p" onclick="irACompraArchivo('${t.id}')">Comprar este cuadro</button>`:enC.length>0?`<button class="btn btn-g" onclick="mostrarConsig('${t.id}')">Ver en consignación</button>`:`<button class="btn btn-o" onclick="irAPersonalizadoArchivo('${t.id}')">Encargar versión similar</button>`}
+        <button class="btn btn-p" onclick="ir('detalle?id=${t.id}')">Ver cuadro</button>
       </div>
     </div>`;
   }).join('');
-}
-
-function irACompraArchivo(tipoId) {
-  const t = ARCHIVO_DATA.find(x=>x.id===tipoId);
-  COMPRA = { paso:1, tipo:'stock', tipoCuadro:t, unidad:null, pago:null, tamanio:null };
-  ir('compra');
-}
-function irAPersonalizadoArchivo(tipoId) {
-  const t = ARCHIVO_DATA.find(x=>x.id===tipoId);
-  COMPRA = { paso:1, tipo:'personalizado_archivo', tipoCuadro:t, unidad:null, pago:null, tamanio:'personalizado' };
-  ir('compra');
-}
-function mostrarConsig(tipoId) {
-  const t = ARCHIVO_DATA.find(x=>x.id===tipoId);
-  const cons = (t?.unidades||[]).filter(u=>u.estado==='consignacion');
-  const lista = document.getElementById('cons-lista');
-  if (lista) lista.innerHTML = cons.map(u=>`<div style="background:var(--lino);border-radius:var(--r);padding:12px;margin-bottom:8px"><strong>${u.lugares?.nombre||'Local'}</strong>${u.lugares?.direccion?`<br><span style="font-size:.85rem;color:var(--suave)">${u.lugares.direccion}</span>`:''}${u.lugares?.google_maps_url?`<br><a href="${u.lugares.google_maps_url}" target="_blank" style="font-size:.82rem">📍 Ver en el mapa</a>`:''}</div>`).join('');
-  document.getElementById('btn-comp-pers-cons').onclick = () => { cerrarModal('modal-cons'); irAPersonalizadoArchivo(tipoId); };
-  document.getElementById('modal-cons').classList.add('on');
 }
 
 // ============================================================
