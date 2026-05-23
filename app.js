@@ -202,6 +202,7 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .adm-menu-btn{display:flex;position:fixed;top:16px;left:16px;z-index:1600;background:var(--carbon);color:var(--oro-cl);border:none;width:44px;height:44px;border-radius:var(--r);cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--sombra);font-size:1.4rem}
 .adm-overlay{position:fixed;inset:0;background:rgba(44,36,22,.5);z-index:1400}
 .adm-overlay.on{display:block}
+#checkout-content > div:nth-child(2),#checkout-content > div:nth-child(3){grid-template-columns:1fr!important;gap:24px!important}
 }
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
 .hero-slide.on{opacity:1}
@@ -614,9 +615,388 @@ async function verLugar(lugarId) {
   `;
   document.getElementById('modal-lugar').classList.add('on');
 }
-function htmlCarrito() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Carrito</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p><button class="btn btn-p" onclick="ir('home')">Volver al inicio</button></div>${htmlFooter()}`; }
-function htmlCheckout() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Checkout</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p></div>${htmlFooter()}`; }
-function initCheckout() {}
+function htmlCarrito() {
+  return `${htmlNav()}
+  <div class="page-hdr"><div class="wrap"><span class="tag">Tu carrito</span><h1>Carrito de compras</h1></div></div>
+  <div style="background:var(--marfil);min-height:60vh;padding:60px 0">
+    <div class="wrap" style="max-width:780px" id="carrito-content">
+      ${renderCarritoContent()}
+    </div>
+  </div>
+  ${htmlFooter()}`;
+}
+
+function renderCarritoContent() {
+  if (CARRITO.length === 0) {
+    return `<div style="text-align:center;padding:60px 24px;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm)">
+      <div style="font-size:4rem;opacity:.2;margin-bottom:16px">🛒</div>
+      <h3 style="font-family:var(--display);font-size:1.8rem;margin-bottom:8px">Tu carrito está vacío</h3>
+      <p style="margin-bottom:24px">Explorá nuestros cuadros y agregá los que más te gusten.</p>
+      <button class="btn btn-p" onclick="ir('archivo')">Ver cuadros</button>
+    </div>`;
+  }
+
+  const total = totalCarrito();
+  const hayEncargos = CARRITO.some(i => i.tipo === 'encargo');
+
+  return `
+    <div style="margin-bottom:24px">
+      ${CARRITO.map((item, i) => `
+        <div class="carrito-item">
+          <div class="carrito-item-img">
+            ${item.imagenUrl ? `<img src="${item.imagenUrl}" alt="${item.tipoNombre}" style="width:100%;height:100%;object-fit:cover"/>` : '✝'}
+          </div>
+          <div class="carrito-item-info">
+            <div class="carrito-item-nom">${item.tipoNombre}
+              ${item.tipo==='encargo'?'<span class="tag-encargo">Encargo</span>':''}
+            </div>
+            <div class="carrito-item-meta">${item.tipoCodigo} · ${item.tamanio}</div>
+            <div class="carrito-item-precio">$${Number(item.precio).toLocaleString('es-AR')}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-end">
+            <div class="carrito-cant">
+              <button onclick="cambiarCantidadCarrito(${i}, -1)">−</button>
+              <span>${item.cantidad}</span>
+              <button onclick="cambiarCantidadCarrito(${i}, 1)">+</button>
+            </div>
+            <button onclick="quitarDelCarrito(${i})" style="background:none;border:none;color:#c62828;font-size:.78rem;cursor:pointer;font-family:var(--body)">✕ Quitar</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${hayEncargos ? `
+      <div style="background:#fff8e1;border-left:3px solid #f9a825;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:24px;font-size:.88rem">
+        ⏳ Tu carrito incluye cuadros por encargo. Tiempo estimado de pintado: 2-4 semanas.
+      </div>
+    ` : ''}
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--lino-osc);margin-bottom:16px">
+        <span style="color:var(--suave)">Subtotal (${cantidadTotalCarrito()} ${cantidadTotalCarrito()===1?'cuadro':'cuadros'})</span>
+        <strong>$${Number(total).toLocaleString('es-AR')}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-family:var(--display);font-size:1.4rem">Total</span>
+        <span style="font-family:var(--display);font-size:2rem;color:var(--oro-osc)">$${Number(total).toLocaleString('es-AR')}</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-gh" onclick="ir('archivo')" style="flex:1">← Seguir comprando</button>
+      <button class="btn btn-g" onclick="ir('checkout')" style="flex:2;justify-content:center">Finalizar compra →</button>
+    </div>
+  `;
+}
+
+let CHECKOUT = { nombre:'', email:'', tel:'', zona:'', pago:null };
+let CHECKOUT_ERROR = null;  // Mensaje a mostrar si MP falló
+
+function htmlCheckout() {
+  return `${htmlNav()}
+  <div class="page-hdr"><div class="wrap"><span class="tag">Checkout</span><h1>Finalizar pedido</h1></div></div>
+  <div style="background:var(--marfil);padding:60px 0;min-height:60vh">
+    <div class="wrap" style="max-width:780px" id="checkout-content"></div>
+  </div>
+  ${htmlFooter()}`;
+}
+
+function initCheckout() {
+  if (CARRITO.length === 0) {
+    document.getElementById('checkout-content').innerHTML = `
+      <div style="text-align:center;padding:40px">
+        <p style="margin-bottom:16px">Tu carrito está vacío.</p>
+        <button class="btn btn-p" onclick="ir('archivo')">Ver cuadros</button>
+      </div>`;
+    return;
+  }
+  renderCheckout();
+}
+
+function renderCheckout() {
+  const total = totalCarrito();
+  document.getElementById('checkout-content').innerHTML = `
+    ${CHECKOUT_ERROR ? `
+      <div style="background:#fce4ec;border-left:3px solid #c62828;padding:14px 18px;border-radius:0 var(--r) var(--r) 0;margin-bottom:24px">
+        <strong style="color:#c62828">⚠️ ${CHECKOUT_ERROR}</strong>
+        <p style="font-size:.85rem;margin-top:4px;color:var(--suave)">Podés intentar de nuevo o elegir <strong>Efectivo o transferencia</strong>.</p>
+      </div>
+    ` : ''}
+
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:32px;align-items:start">
+      <!-- COLUMNA IZQUIERDA: DATOS -->
+      <div>
+        <h3 style="font-family:var(--display);font-size:1.6rem;margin-bottom:8px">Tus datos</h3>
+        <p style="font-size:.88rem;color:var(--suave);margin-bottom:24px">Necesitamos esta información para coordinar la entrega.</p>
+        <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="co-nom" value="${CHECKOUT.nombre}"/></div>
+        <div class="fg"><label class="fl">Email *</label><input class="fi" type="email" id="co-email" value="${CHECKOUT.email}"/></div>
+        <div class="fg"><label class="fl">Teléfono / WhatsApp</label><input class="fi" type="tel" id="co-tel" value="${CHECKOUT.tel}"/></div>
+        <div class="fg"><label class="fl">Zona de entrega *</label><input class="fi" id="co-zona" value="${CHECKOUT.zona}"/><p style="font-size:.8rem;color:var(--suave);margin-top:6px">⚠️ No realizamos envíos a domicilio. La entrega se coordina personalmente.</p></div>
+
+        <h3 style="font-family:var(--display);font-size:1.6rem;margin:32px 0 16px">Forma de pago</h3>
+        <div class="pago-opts">
+          <div class="pago-opt ${CHECKOUT.pago==='efectivo'?'sel':''}" onclick="selPagoCheckout('efectivo')">
+            <div class="pago-ic">💵</div>
+            <div class="pago-nom">Efectivo o transferencia</div>
+            <p style="font-size:.78rem;color:var(--suave);margin-top:4px">Coordinás directo con Pao</p>
+          </div>
+          <div class="pago-opt ${CHECKOUT.pago==='mercadopago'?'sel':''}" onclick="selPagoCheckout('mercadopago')">
+            <div class="pago-ic">💳</div>
+            <div class="pago-nom">MercadoPago</div>
+            <p style="font-size:.78rem;color:var(--suave);margin-top:4px">Tarjeta, dinero en cuenta</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMNA DERECHA: RESUMEN -->
+      <div style="position:sticky;top:100px">
+        <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px">
+          <h4 style="font-family:var(--display);font-size:1.3rem;margin-bottom:16px">Tu pedido</h4>
+          ${CARRITO.map(i => `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--lino-osc);font-size:.88rem;gap:8px">
+              <div>
+                <strong>${i.tipoNombre}</strong>
+                ${i.tipo==='encargo'?'<span class="tag-encargo">Encargo</span>':''}
+                <br><span style="color:var(--suave);font-size:.78rem">${i.tamanio} · x${i.cantidad}</span>
+              </div>
+              <span>$${Number(i.precio * i.cantidad).toLocaleString('es-AR')}</span>
+            </div>
+          `).join('')}
+          <div style="display:flex;justify-content:space-between;padding-top:14px;margin-top:8px;font-family:var(--display);font-size:1.4rem;color:var(--oro-osc)">
+            <span>Total</span>
+            <span>$${Number(total).toLocaleString('es-AR')}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+          <button class="btn btn-g" id="btn-co-conf" onclick="confirmarCheckout()" style="justify-content:center" ${CHECKOUT.pago?'':'disabled'}>✓ Confirmar pedido</button>
+          <button class="btn btn-gh" onclick="ir('carrito')" style="justify-content:center">← Volver al carrito</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Reinstalar listeners para no perder el estado al tipear
+  ['nom','email','tel','zona'].forEach(k => {
+    const el = document.getElementById('co-'+k);
+    if (el) el.addEventListener('input', e => { CHECKOUT[k==='nom'?'nombre':k] = e.target.value; });
+  });
+}
+
+function selPagoCheckout(p) {
+  CHECKOUT.pago = p;
+  CHECKOUT_ERROR = null;  // Limpiar error si lo había
+  renderCheckout();
+}
+
+async function confirmarCheckout() {
+  // Validar datos
+  if (!CHECKOUT.nombre || !CHECKOUT.email || !CHECKOUT.zona) {
+    alert('Completá los campos obligatorios.');
+    return;
+  }
+  if (!CHECKOUT.pago) {
+    alert('Elegí una forma de pago.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-co-conf');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+
+  // Construir descripción del pedido con todos los items
+  const itemsDesc = CARRITO.map(i => `${i.cantidad}x ${i.tipoNombre} (${i.tamanio})${i.tipo==='encargo'?' [ENCARGO]':''}`).join(' | ');
+  const total = totalCarrito();
+  const numeroPedido = 'PED-' + Date.now();
+
+  // Crear UN pedido principal en la base que englobe todo
+  const datosPedido = {
+    numero_pedido: numeroPedido,
+    tipo: CARRITO.some(i => i.tipo === 'encargo') ? 'stock' : 'stock',  // Mantenemos 'stock' como tipo principal, los encargos quedan registrados en la descripcion
+    tipo_cuadro_id: CARRITO[0]?.tipoId || null,  // El primer cuadro del carrito como referencia
+    unidad_id: null,  // No asignamos unidad específica aún
+    cliente_nombre: CHECKOUT.nombre,
+    cliente_email: CHECKOUT.email,
+    cliente_telefono: CHECKOUT.tel || null,
+    zona_envio: CHECKOUT.zona,
+    metodo_pago: CHECKOUT.pago,
+    tamanio: CARRITO.length === 1 ? CARRITO[0].tamanio : null,
+    precio_total: total,
+    descripcion_personalizado: `CARRITO:\n${itemsDesc}`,
+    imagen_referencia_url: null,
+  };
+
+  const { data:pedidoCreado, error } = await DB.from('pedidos').insert(datosPedido).select().single();
+
+  if (error) {
+    alert('Error al crear el pedido. Intentá de nuevo.');
+    btn.disabled = false;
+    btn.textContent = '✓ Confirmar pedido';
+    console.error('Error pedido:', error);
+    return;
+  }
+
+  // Para cada item del carrito, crear una venta (si es stock) y marcar la unidad como vendida
+  for (const item of CARRITO) {
+    if (item.tipo === 'stock' && item.unidadesDisponibles?.length > 0) {
+      // Tomar las primeras N unidades disponibles
+      const unidadesAUsar = item.unidadesDisponibles.slice(0, item.cantidad);
+      for (const unidId of unidadesAUsar) {
+        await DB.from('unidades_cuadro').update({ estado: 'vendido' }).eq('id', unidId);
+        await DB.from('ventas').insert({
+          unidad_id: unidId,
+          pedido_id: pedidoCreado.id,
+          canal: 'web',
+          cliente_nombre: CHECKOUT.nombre,
+          cliente_email: CHECKOUT.email,
+          cliente_telefono: CHECKOUT.tel || null,
+          precio_venta: item.precio,
+          cobrado: false,
+          entregado: false,
+        });
+      }
+    } else if (item.tipo === 'encargo') {
+      // Para encargos, crear una venta sin unidad_id (será asignada cuando se pinte)
+      for (let i = 0; i < item.cantidad; i++) {
+        await DB.from('ventas').insert({
+          unidad_id: null,
+          pedido_id: pedidoCreado.id,
+          canal: 'web',
+          cliente_nombre: CHECKOUT.nombre,
+          cliente_email: CHECKOUT.email,
+          cliente_telefono: CHECKOUT.tel || null,
+          precio_venta: item.precio,
+          cobrado: false,
+          entregado: false,
+        });
+      }
+    }
+  }
+
+  // Si eligió MercadoPago → crear preferencia y redirigir
+  if (CHECKOUT.pago === 'mercadopago') {
+    try {
+      const r = await fetch('/.netlify/functions/crear-preferencia-mp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pedidoId: pedidoCreado.id,
+          numeroPedido: numeroPedido,
+          cuadroNombre: CARRITO.length === 1 ? CARRITO[0].tipoNombre : `${cantidadTotalCarrito()} cuadros`,
+          precio: total,
+          clienteEmail: CHECKOUT.email,
+          clienteNombre: CHECKOUT.nombre,
+        }),
+      });
+      const result = await r.json();
+      if (result.init_point) {
+        // Enviar email en background
+        enviarEmailCarrito(pedidoCreado, numeroPedido);
+        // Redirigir a MP
+        window.location.href = result.init_point;
+        return;
+      } else {
+        throw new Error('No se generó link de pago');
+      }
+    } catch (e) {
+      console.warn('Error MP:', e);
+      // ROLLBACK: borrar el pedido y las ventas asociadas, restaurar stock
+      await rollbackPedido(pedidoCreado.id);
+      CHECKOUT_ERROR = 'MercadoPago no pudo procesar tu pago.';
+      CHECKOUT.pago = null;
+      renderCheckout();
+      return;
+    }
+  }
+
+  // Si eligió efectivo o transferencia → pantalla de éxito
+  COMPRA = { _numpedido: numeroPedido, _nombre: CHECKOUT.nombre, pago: CHECKOUT.pago };  // Para la pantalla de éxito
+  enviarEmailCarrito(pedidoCreado, numeroPedido);
+
+  // Vaciar carrito
+  CARRITO = [];
+  guardarCarrito();
+
+  // Mostrar pantalla de éxito
+  document.getElementById('checkout-content').innerHTML = htmlExitoCarrito(numeroPedido);
+  window.scrollTo(0,0);
+}
+
+async function rollbackPedido(pedidoId) {
+  // Obtener las ventas asociadas
+  const { data:ventas } = await DB.from('ventas').select('id, unidad_id').eq('pedido_id', pedidoId);
+  // Restaurar unidades a stock
+  if (ventas) {
+    for (const v of ventas) {
+      if (v.unidad_id) {
+        await DB.from('unidades_cuadro').update({ estado: 'stock' }).eq('id', v.unidad_id);
+      }
+    }
+  }
+  // Borrar ventas
+  await DB.from('ventas').delete().eq('pedido_id', pedidoId);
+  // Borrar pedido
+  await DB.from('pedidos').delete().eq('id', pedidoId);
+}
+
+function enviarEmailCarrito(pedido, numeroPedido) {
+  try {
+    const items = CARRITO.map(i => `- ${i.cantidad}x ${i.tipoNombre} (${i.tipoCodigo}) - ${i.tamanio} ${i.tipo==='encargo'?'[ENCARGO]':''} - $${Number(i.precio*i.cantidad).toLocaleString('es-AR')}`).join('\n');
+    const total = totalCarrito();
+    const metodoPago = CHECKOUT.pago === 'efectivo' ? 'Efectivo o transferencia' : 'MercadoPago';
+    const mensaje = `Hola ${CHECKOUT.nombre},\n\n`
+      + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
+      + `N° de pedido: ${numeroPedido}\n\n`
+      + `DETALLE:\n${items}\n\n`
+      + `TOTAL: $${Number(total).toLocaleString('es-AR')}\n`
+      + `Forma de pago: ${metodoPago}\n`
+      + `Zona de entrega: ${CHECKOUT.zona}\n`
+      + `Teléfono: ${CHECKOUT.tel || 'No indicado'}\n\n`
+      + `Pronto nos contactaremos con vos para coordinar la entrega.\n\n`
+      + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
+    enviarEmail(`🛒 Pedido confirmado - ${numeroPedido}`, mensaje, CHECKOUT.email, {
+      cliente_nombre: CHECKOUT.nombre,
+      cliente_email: CHECKOUT.email,
+      cliente_telefono: CHECKOUT.tel || '',
+      numero_pedido: numeroPedido,
+      cuadro: items,
+      tamanio: '',
+      precio: '$'+Number(total).toLocaleString('es-AR'),
+      zona: CHECKOUT.zona,
+      metodo_pago: metodoPago,
+      tipo_pedido: 'Carrito',
+    });
+  } catch (e) {
+    console.warn('Error email:', e);
+  }
+}
+
+function htmlExitoCarrito(numPedido) {
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}` : '#';
+  const igUrl = CFG.instagram_url || '#';
+  return `<div style="max-width:560px;margin:0 auto">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#faf5ea,var(--lino));border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">🙏</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px">¡Pedido confirmado!</h3>
+      <p style="font-size:1rem;color:var(--suave)">Gracias ${CHECKOUT.nombre?.split(' ')[0] || ''}, te vamos a contactar a la brevedad.</p>
+    </div>
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px;text-align:center">
+      <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+      <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${numPedido}</div>
+    </div>
+    <div style="background:#faf5ea;border-left:3px solid var(--oro);padding:20px 24px;border-radius:0 var(--rm) var(--rm) 0;margin-bottom:24px">
+      <h4 style="font-family:var(--display);margin-bottom:12px">✨ ¿Qué sigue?</h4>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>1.</strong> Pao se contacta por email o WhatsApp para coordinar.</p>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>2.</strong> Acordamos lugar y horario de entrega.</p>
+      <p style="font-size:.92rem;line-height:1.7"><strong>3.</strong> Abonás en efectivo o por transferencia.</p>
+    </div>
+    <div style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="${waUrl}" target="_blank" class="btn btn-g">💬 WhatsApp</a>
+      <button class="btn btn-p" onclick="ir('home')">Volver al inicio</button>
+    </div>
+  </div>`;
+}
+
 function htmlPersonalizado() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Personalizado</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p></div>${htmlFooter()}`; }
 function initPersonalizado() {}
 
