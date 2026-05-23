@@ -215,6 +215,17 @@ function init() {
   s.textContent = CSS;
   document.head.appendChild(s);
   DB = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+  // Detectar retorno de MercadoPago (viene como ?pago=...&pedido=...)
+  const url = new URL(location.href);
+  const pago = url.searchParams.get('pago');
+  const pedido = url.searchParams.get('pedido');
+  if (pago && pedido) {
+    // Limpiar query params y redirigir a hash
+    history.replaceState(null, '', location.pathname);
+    location.hash = `pago-${pago}?pedido=${pedido}`;
+  }
+
   window.addEventListener('hashchange', router);
   router();
 }
