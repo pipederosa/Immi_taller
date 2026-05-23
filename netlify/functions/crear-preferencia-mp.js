@@ -26,11 +26,11 @@ exports.handler = async (event) => {
         email: clienteEmail,
         name: clienteNombre,
       },
-      back_urls: {
-        success: `${SITE_URL}/#pago-exitoso?pedido=${numeroPedido}`,
-        pending: `${SITE_URL}/#pago-pendiente?pedido=${numeroPedido}`,
-        failure: `${SITE_URL}/#pago-rechazado?pedido=${numeroPedido}`,
-      },
+     back_urls: {
+       success: `${SITE_URL}/?pago=exitoso&pedido=${numeroPedido}`,
+       pending: `${SITE_URL}/?pago=pendiente&pedido=${numeroPedido}`,
+       failure: `${SITE_URL}/?pago=rechazado&pedido=${numeroPedido}`,
+     },
       auto_return: 'approved',
       external_reference: pedidoId,
       notification_url: `${SITE_URL}/.netlify/functions/webhook-mp`,
