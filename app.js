@@ -997,8 +997,333 @@ function htmlExitoCarrito(numPedido) {
   </div>`;
 }
 
-function htmlPersonalizado() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Personalizado</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p></div>${htmlFooter()}`; }
-function initPersonalizado() {}
+let PERSO = { paso:1, tipo:null, tipoCuadro:null, nombre:'', email:'', tel:'', zona:'', desc:'', imgref:'', tamanio:'' };
+
+function htmlPersonalizado() {
+  return `${htmlNav()}
+  <div class="page-hdr"><div class="wrap"><span class="tag">A medida</span><h1>Encargá tu propio diseño</h1></div></div>
+  <div style="background:var(--marfil);padding:60px 0;min-height:60vh"><div class="wrap" style="max-width:680px">
+    <div class="stepper">
+      <div class="step on" id="psp-1"><div class="step-n">1</div><div class="step-l">Tipo</div></div>
+      <div class="step" id="psp-2"><div class="step-n">2</div><div class="step-l">Detalles</div></div>
+      <div class="step" id="psp-3"><div class="step-n">3</div><div class="step-l">Confirmar</div></div>
+    </div>
+    <div id="perso-panel"></div>
+  </div></div>
+  ${htmlFooter()}`;
+}
+
+function initPersonalizado() {
+  // Reset state
+  PERSO = { paso:1, tipo:null, tipoCuadro:null, nombre:'', email:'', tel:'', zona:'', desc:'', imgref:'', tamanio:'' };
+  renderPersoPaso(1);
+}
+
+function setStepperPerso(paso) {
+  [1,2,3].forEach(i => {
+    const el = document.getElementById(`psp-${i}`);
+    if (!el) return;
+    el.classList.remove('on','done');
+    if (i < paso) el.classList.add('done');
+    if (i === paso) el.classList.add('on');
+  });
+}
+
+function renderPersoPaso(paso) {
+  PERSO.paso = paso;
+  setStepperPerso(paso);
+  const panel = document.getElementById('perso-panel');
+  if (!panel) return;
+  if (paso === 1) panel.innerHTML = htmlPersoPaso1();
+  else if (paso === 2) {
+    if (PERSO.tipo === 'archivo' && !PERSO.tipoCuadro) renderPersoSeleccionArchivo(panel);
+    else panel.innerHTML = htmlPersoPaso2();
+  }
+  else if (paso === 3) panel.innerHTML = htmlPersoPaso3();
+  else if (paso === 99) panel.innerHTML = htmlPersoExito();
+  window.scrollTo({top:200, behavior:'smooth'});
+}
+
+function htmlPersoPaso1() {
+  return `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">¿Qué tipo de encargo?</h3>
+  <p style="margin-bottom:32px">Elegí cómo querés que sea tu cuadro</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <div class="tam-opt ${PERSO.tipo==='archivo'?'sel':''}" onclick="selTipoPerso2('archivo')">
+      <div class="tam-ic">🖼️</div>
+      <div class="tam-nom" style="font-size:1.1rem">Similar a uno del archivo</div>
+      <p style="font-size:.78rem;color:var(--suave);margin-top:4px">Reinterpretado por Pao</p>
+    </div>
+    <div class="tam-opt ${PERSO.tipo==='nuevo'?'sel':''}" onclick="selTipoPerso2('nuevo')">
+      <div class="tam-ic">✨</div>
+      <div class="tam-nom" style="font-size:1.1rem">Completamente nuevo</div>
+      <p style="font-size:.78rem;color:var(--suave);margin-top:4px">Tu propia idea, único</p>
+    </div>
+  </div>
+  <button class="btn btn-gh" onclick="ir('archivo')">← Volver al archivo</button>`;
+}
+
+function selTipoPerso2(t) {
+  PERSO.tipo = t;
+  if (t === 'archivo') {
+    PERSO.tipoCuadro = null;
+    renderPersoPaso(2);  // Va a la selección del cuadro base
+  } else {
+    PERSO.tipoCuadro = null;
+    renderPersoPaso(2);  // Va directo al formulario
+  }
+}
+
+async function renderPersoSeleccionArchivo(panel) {
+  setStepperPerso(2);
+  const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo', true).order('codigo_id');
+  panel.innerHTML = `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">Elegí el cuadro base</h3>
+  <p style="margin-bottom:24px;color:var(--suave)">¿Qué cuadro queremos recrear para vos?</p>
+  <div id="perso-arch-sel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:32px">
+    ${(tipos||[]).map(t => `<div class="tipo-card" style="cursor:pointer" id="psa-${t.id}" onclick="selPersoCuadro('${t.id}','${(t.nombre||'').replace(/'/g,"\\'")}','${t.codigo_id}','${t.imagen_url||''}')">
+      <div class="tipo-img" style="aspect-ratio:1">${t.imagen_url?`<img src="${t.imagen_url}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;opacity:.2">✝</div>'}</div>
+      <div class="tipo-info" style="padding:10px">
+        <span class="tipo-cod">${t.codigo_id}</span>
+        <div class="tipo-nom" style="font-size:1rem">${t.nombre}</div>
+      </div>
+    </div>`).join('')}
+  </div>
+  <div style="display:flex;gap:12px">
+    <button class="btn btn-gh" onclick="renderPersoPaso(1)">← Volver</button>
+    <button class="btn btn-p" id="btn-psa-sig" onclick="renderPersoPaso(2)" disabled>Continuar →</button>
+  </div>`;
+}
+
+function selPersoCuadro(id, nombre, codigo, imagen) {
+  PERSO.tipoCuadro = { id, nombre, codigo_id: codigo, imagen_url: imagen };
+  document.querySelectorAll('#perso-arch-sel .tipo-card').forEach(el => el.style.borderColor = '');
+  const el = document.getElementById(`psa-${id}`);
+  if (el) el.style.borderColor = 'var(--oro)';
+  const btn = document.getElementById('btn-psa-sig');
+  if (btn) btn.disabled = false;
+}
+
+function htmlPersoPaso2() {
+  const esArchivo = PERSO.tipo === 'archivo';
+  return `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">Contanos tu idea</h3>
+  <p style="margin-bottom:24px;color:var(--suave)">${esArchivo?'Detalles para personalizar el cuadro elegido':'Describí cómo querés tu cuadro'}</p>
+
+  ${esArchivo && PERSO.tipoCuadro ? `
+    <div style="background:var(--lino);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:flex;align-items:center;gap:16px">
+      <div style="width:60px;height:60px;border-radius:var(--r);overflow:hidden;background:var(--marfil);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:.3">
+        ${PERSO.tipoCuadro.imagen_url?`<img src="${PERSO.tipoCuadro.imagen_url}" style="width:100%;height:100%;object-fit:cover"/>`:'✝'}
+      </div>
+      <div>
+        <div style="font-size:.75rem;letter-spacing:.1em;color:var(--oro);text-transform:uppercase">${PERSO.tipoCuadro.codigo_id}</div>
+        <strong style="font-family:var(--display);font-size:1.2rem">${PERSO.tipoCuadro.nombre}</strong>
+      </div>
+    </div>
+  ` : ''}
+
+  <div class="fg">
+    <label class="fl">Tamaño deseado</label>
+    <select class="fs" id="ps-tam">
+      <option value="">Seleccioná</option>
+      <option value="15x15" ${PERSO.tamanio==='15x15'?'selected':''}>15x15 cm</option>
+      <option value="20x20" ${PERSO.tamanio==='20x20'?'selected':''}>20x20 cm</option>
+      <option value="otro" ${PERSO.tamanio==='otro'?'selected':''}>Otro (a coordinar)</option>
+    </select>
+  </div>
+
+  <div class="fg">
+    <label class="fl">${esArchivo ? 'Cambios que querés (colores, detalles, etc.)' : 'Descripción del cuadro *'}</label>
+    <textarea class="ft" id="ps-desc" placeholder="${esArchivo?'Ej: similar al original pero con marco dorado y fondo azul...':'Contanos qué querés: imagen, colores, técnica, destino...'}">${PERSO.desc}</textarea>
+  </div>
+
+  <div class="fg">
+    <label class="fl">Imagen de referencia (opcional)</label>
+    <input class="fi" type="file" id="ps-imgref-file" accept="image/*" style="padding:10px"/>
+    ${PERSO.imgref?`<p style="font-size:.8rem;color:#2e7d32;margin-top:6px">✓ Imagen ya subida. <a href="${PERSO.imgref}" target="_blank">Ver</a></p>`:'<p style="font-size:.8rem;color:var(--suave);margin-top:6px">Si no tenés ahora, podés enviarla por WhatsApp después.</p>'}
+  </div>
+
+  <div style="display:flex;gap:12px;margin-top:24px">
+    <button class="btn btn-gh" onclick="${esArchivo?'PERSO.tipoCuadro=null;renderPersoPaso(2)':'renderPersoPaso(1)'}">← Volver</button>
+    <button class="btn btn-p" onclick="avanzarPerso2()">Continuar →</button>
+  </div>`;
+}
+
+async function avanzarPerso2() {
+  const desc = document.getElementById('ps-desc')?.value.trim();
+  const tam = document.getElementById('ps-tam')?.value;
+
+  if (PERSO.tipo === 'nuevo' && !desc) {
+    alert('Por favor describí cómo querés tu cuadro.');
+    return;
+  }
+
+  PERSO.desc = desc;
+  PERSO.tamanio = tam || '';
+
+  // Subir imagen si hay
+  const fi = document.getElementById('ps-imgref-file');
+  if (fi?.files?.length > 0) {
+    const f = fi.files[0];
+    const ext = f.name.split('.').pop();
+    const fname = `ref-${Date.now()}.${ext}`;
+    const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
+    if (!ue) {
+      const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
+      PERSO.imgref = ud.publicUrl;
+    }
+  }
+
+  renderPersoPaso(3);
+}
+
+function htmlPersoPaso3() {
+  const esArchivo = PERSO.tipo === 'archivo';
+  return `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">Tus datos</h3>
+  <p style="margin-bottom:24px;color:var(--suave)">Para coordinar el encargo</p>
+
+  <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="ps-nom" value="${PERSO.nombre}"/></div>
+  <div class="fg"><label class="fl">Email *</label><input class="fi" type="email" id="ps-email" value="${PERSO.email}"/></div>
+  <div class="fg"><label class="fl">Teléfono / WhatsApp</label><input class="fi" type="tel" id="ps-tel" value="${PERSO.tel}"/></div>
+  <div class="fg"><label class="fl">Zona de entrega *</label><input class="fi" id="ps-zona" value="${PERSO.zona}"/></div>
+
+  <div style="background:var(--lino);border-radius:var(--rm);padding:20px;margin:24px 0">
+    <h4 style="font-family:var(--display);margin-bottom:12px">📋 Resumen del encargo</h4>
+    <div class="res-item"><span>Tipo</span><span>${esArchivo?'Similar al archivo':'Diseño nuevo'}</span></div>
+    ${esArchivo && PERSO.tipoCuadro?`<div class="res-item"><span>Cuadro base</span><span>${PERSO.tipoCuadro.nombre}</span></div>`:''}
+    <div class="res-item"><span>Tamaño</span><span>${PERSO.tamanio || 'A coordinar'}</span></div>
+    <div class="res-item"><span>Precio</span><span style="color:var(--oro)">A coordinar con Pao</span></div>
+  </div>
+
+  <div style="background:#faf5ea;border-left:3px solid var(--oro);padding:14px 18px;border-radius:0 var(--r) var(--r) 0;margin-bottom:24px;font-size:.88rem">
+    💡 <strong>Importante:</strong> Este es solo un pedido. Pao revisa tu solicitud, confirma el precio final y los tiempos por WhatsApp o email antes de empezar.
+  </div>
+
+  <div style="display:flex;gap:12px">
+    <button class="btn btn-gh" onclick="renderPersoPaso(2)">← Volver</button>
+    <button class="btn btn-g" onclick="confirmarPerso()" id="btn-perso-conf" style="flex:1">✨ Enviar encargo</button>
+  </div>`;
+}
+
+async function confirmarPerso() {
+  const nom = document.getElementById('ps-nom')?.value.trim();
+  const email = document.getElementById('ps-email')?.value.trim();
+  const tel = document.getElementById('ps-tel')?.value.trim();
+  const zona = document.getElementById('ps-zona')?.value.trim();
+
+  if (!nom || !email || !zona) {
+    alert('Completá los campos obligatorios (nombre, email, zona).');
+    return;
+  }
+
+  PERSO.nombre = nom;
+  PERSO.email = email;
+  PERSO.tel = tel;
+  PERSO.zona = zona;
+
+  const btn = document.getElementById('btn-perso-conf');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const numeroPedido = 'ENC-' + Date.now();
+  const esArchivo = PERSO.tipo === 'archivo';
+
+  const datos = {
+    numero_pedido: numeroPedido,
+    tipo: esArchivo ? 'personalizado_archivo' : 'personalizado_nuevo',
+    tipo_cuadro_id: PERSO.tipoCuadro?.id || null,
+    unidad_id: null,
+    cliente_nombre: nom,
+    cliente_email: email,
+    cliente_telefono: tel || null,
+    zona_envio: zona,
+    metodo_pago: null,
+    tamanio: PERSO.tamanio || null,
+    precio_total: null,
+    descripcion_personalizado: PERSO.desc || null,
+    imagen_referencia_url: PERSO.imgref || null,
+  };
+
+  const { error } = await DB.from('pedidos').insert(datos);
+  if (error) {
+    alert('Error al enviar el encargo. Intentá de nuevo.');
+    btn.disabled = false;
+    btn.textContent = '✨ Enviar encargo';
+    return;
+  }
+
+  // Email al vendedor
+  enviarEmailPerso(numeroPedido);
+
+  PERSO._numpedido = numeroPedido;
+  renderPersoPaso(99);
+}
+
+function enviarEmailPerso(numeroPedido) {
+  try {
+    const esArchivo = PERSO.tipo === 'archivo';
+    const mensajeVendedor = `NUEVO ENCARGO PERSONALIZADO\n\n`
+      + `Cliente: ${PERSO.nombre}\n`
+      + `Email: ${PERSO.email}\n`
+      + `Teléfono: ${PERSO.tel || 'No indicado'}\n`
+      + `Zona: ${PERSO.zona}\n`
+      + `N° Pedido: ${numeroPedido}\n\n`
+      + `Tipo: ${esArchivo?'Similar al archivo':'Diseño completamente nuevo'}\n`
+      + `${esArchivo && PERSO.tipoCuadro?`Cuadro base: ${PERSO.tipoCuadro.nombre} (${PERSO.tipoCuadro.codigo_id})\n`:''}`
+      + `Tamaño: ${PERSO.tamanio || 'A coordinar'}\n\n`
+      + `DESCRIPCIÓN:\n${PERSO.desc || '(sin descripción)'}\n\n`
+      + `Imagen de referencia: ${PERSO.imgref || 'Sin imagen adjunta'}\n`;
+
+    enviarEmail(`✨ Nuevo encargo - ${numeroPedido}`, mensajeVendedor, null, {
+      cliente_nombre: PERSO.nombre,
+      cliente_email: PERSO.email,
+      cliente_telefono: PERSO.tel || '',
+      numero_pedido: numeroPedido,
+      zona: PERSO.zona,
+      tipo_pedido: esArchivo?'Personalizado del archivo':'Personalizado nuevo',
+      descripcion: PERSO.desc || '',
+      imagen_ref: PERSO.imgref || '',
+    });
+  } catch (e) {
+    console.warn('Error email perso:', e);
+  }
+}
+
+function htmlPersoExito() {
+  const waText = encodeURIComponent(`✨ Encargo personalizado\n\nCliente: ${PERSO.nombre}\nEmail: ${PERSO.email}\nTel: ${PERSO.tel||'No indicado'}\nZona: ${PERSO.zona}\n\n${PERSO.tipo==='archivo' && PERSO.tipoCuadro?`Cuadro base: ${PERSO.tipoCuadro.nombre}\n`:''}Tamaño: ${PERSO.tamanio||'A coordinar'}\n\nDescripción:\n${PERSO.desc||'(sin descripción)'}\n\n${PERSO.imgref?'Imagen: '+PERSO.imgref+'\n\n':''}N° ${PERSO._numpedido}`);
+  const waUrl = CFG.whatsapp_numero ? `https://wa.me/${CFG.whatsapp_numero}?text=${waText}` : '#';
+  const igUrl = CFG.instagram_url || '#';
+
+  return `<div style="max-width:560px;margin:0 auto">
+    <div style="text-align:center;padding:32px 24px;background:linear-gradient(135deg,#faf5ea,var(--lino));border-radius:var(--rm);margin-bottom:24px">
+      <div style="font-size:4rem;margin-bottom:12px">✨</div>
+      <h3 style="font-family:var(--display);font-size:2.4rem;margin-bottom:8px">¡Encargo enviado!</h3>
+      <p style="font-size:1rem;color:var(--suave)">Gracias ${PERSO.nombre?.split(' ')[0] || ''}, recibimos tu pedido.</p>
+    </div>
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:24px;text-align:center">
+      <div style="font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--suave);margin-bottom:4px">Número de pedido</div>
+      <div style="font-family:var(--display);font-size:1.6rem;color:var(--oro);letter-spacing:.05em">${PERSO._numpedido || ''}</div>
+    </div>
+
+    <div style="background:#faf5ea;border-left:3px solid var(--oro);padding:20px 24px;border-radius:0 var(--rm) var(--rm) 0;margin-bottom:24px">
+      <h4 style="font-family:var(--display);margin-bottom:12px">✨ ¿Qué sigue?</h4>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>1.</strong> Pao revisa tu encargo y te contacta por WhatsApp o email.</p>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>2.</strong> Acordamos detalles, precio final y tiempos.</p>
+      <p style="font-size:.92rem;line-height:1.7;margin-bottom:8px"><strong>3.</strong> Pao pinta tu cuadro con dedicación.</p>
+      <p style="font-size:.92rem;line-height:1.7"><strong>4.</strong> Coordinamos la entrega y el pago.</p>
+    </div>
+
+    <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">Para agilizar el contacto, podés escribir directo:</p>
+      <a href="${waUrl}" target="_blank" class="btn btn-g">💬 Continuar por WhatsApp</a>
+    </div>
+
+    <div style="text-align:center">
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <a href="${igUrl}" target="_blank" class="btn btn-gh">📸 Instagram</a>
+      </div>
+      <button class="btn btn-o" onclick="ir('home')">Volver al inicio</button>
+    </div>
+  </div>`;
+}
 
 // ============================================================
 // NAV / FOOTER
