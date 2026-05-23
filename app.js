@@ -168,6 +168,21 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .login-box{background:var(--marfil);border-radius:var(--rm);padding:48px;max-width:420px;width:100%;box-shadow:var(--sombra-f)}
 .login-logo{text-align:center;margin-bottom:32px} .login-logo span{font-family:var(--display);font-size:2rem;font-style:italic;color:var(--oro)}
 .err-box{background:#fce4ec;color:#c62828;padding:12px 16px;border-radius:var(--r);margin-bottom:16px;font-size:.88rem}
+.carrito-flotante{position:fixed;top:88px;right:24px;z-index:900;background:var(--carbon);color:var(--oro-cl);width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--sombra-m);border:none;transition:var(--tr);font-size:1.4rem}
+.carrito-flotante:hover{background:#1a1408;transform:scale(1.08);box-shadow:var(--sombra-f)}
+.carrito-badge{position:absolute;top:-4px;right:-4px;background:var(--oro);color:white;font-size:.72rem;font-weight:600;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--marfil);font-family:var(--body)}
+.carrito-item{background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:12px;display:flex;gap:16px;align-items:center}
+.carrito-item-img{width:80px;height:80px;border-radius:var(--r);object-fit:cover;background:var(--lino);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:2rem;opacity:.4}
+.carrito-item-info{flex:1;min-width:0}
+.carrito-item-nom{font-family:var(--display);font-size:1.1rem;margin-bottom:4px}
+.carrito-item-meta{font-size:.78rem;color:var(--suave);margin-bottom:6px}
+.carrito-item-precio{font-family:var(--display);font-size:1.2rem;color:var(--oro-osc)}
+.carrito-cant{display:flex;align-items:center;gap:8px;background:var(--lino);border-radius:var(--r);padding:4px}
+.carrito-cant button{width:28px;height:28px;border:none;background:var(--marfil);border-radius:var(--r);cursor:pointer;font-size:1rem;color:var(--texto);transition:var(--tr)}
+.carrito-cant button:hover{background:var(--oro);color:white}
+.carrito-cant span{min-width:24px;text-align:center;font-weight:500}
+.tag-encargo{display:inline-block;background:#fff8e1;color:#f57f17;font-size:.68rem;padding:2px 8px;border-radius:20px;letter-spacing:.05em;margin-left:6px;font-weight:500;text-transform:uppercase}
+@media(max-width:640px){.carrito-flotante{top:auto;bottom:24px;right:16px;width:60px;height:60px}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
 @keyframes mIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
@@ -260,16 +275,18 @@ async function enviarEmail(asunto, mensaje, ccCliente, datosForm) {
 
 function router() {
   const h = location.hash || '#home';
-
-  // Rutas de retorno de MercadoPago
   if (h.startsWith('#pago-exitoso')) { render('pago-exitoso'); return; }
   if (h.startsWith('#pago-pendiente')) { render('pago-pendiente'); return; }
   if (h.startsWith('#pago-rechazado')) { render('pago-rechazado'); return; }
+  if (h.startsWith('#detalle')) { render('detalle'); return; }
 
   if (h === '#archivo') render('archivo');
-  else if (h === '#compra') render('compra');
+  else if (h === '#carrito') render('carrito');
+  else if (h === '#checkout') render('checkout');
+  else if (h === '#personalizado') render('personalizado');
   else if (h === '#admin-login') render('admin-login');
   else if (h === '#admin') render('admin');
+  else if (h === '#compra') render('archivo');  // Redirige el viejo flujo de compra al archivo nuevo
   else render('home');
 }
 
@@ -284,19 +301,23 @@ async function render(pag) {
   PAGINA = pag;
   const app = document.getElementById('app');
   if (!CFG.email_vendedor) await cargarConfig();
-  if (pag === 'home') { app.innerHTML = htmlHome(); await cargarHome(); initNavScroll(); }
-  else if (pag === 'archivo') { app.innerHTML = htmlArchivo(); cargarArchivo(); }
-  else if (pag === 'compra') { app.innerHTML = htmlCompra(); initCompra(); }
+  if (pag === 'home') { app.innerHTML = htmlHome() + htmlCarritoFlotante(); await cargarHome(); initNavScroll(); }
+  else if (pag === 'archivo') { app.innerHTML = htmlArchivo() + htmlCarritoFlotante(); cargarArchivo(); }
+  else if (pag === 'detalle') { app.innerHTML = htmlDetalle() + htmlCarritoFlotante(); cargarDetalle(); }
+  else if (pag === 'carrito') { app.innerHTML = htmlCarrito(); }
+  else if (pag === 'checkout') { app.innerHTML = htmlCheckout(); initCheckout(); }
+  else if (pag === 'personalizado') { app.innerHTML = htmlPersonalizado() + htmlCarritoFlotante(); initPersonalizado(); }
+  else if (pag === 'pago-exitoso') app.innerHTML = htmlPagoExitoso() + htmlCarritoFlotante();
+  else if (pag === 'pago-pendiente') app.innerHTML = htmlPagoPendiente() + htmlCarritoFlotante();
+  else if (pag === 'pago-rechazado') app.innerHTML = htmlPagoRechazado() + htmlCarritoFlotante();
   else if (pag === 'admin-login') app.innerHTML = htmlAdminLogin();
-  else if (pag === 'pago-exitoso') app.innerHTML = htmlPagoExitoso();
-  else if (pag === 'pago-pendiente') app.innerHTML = htmlPagoPendiente();
-  else if (pag === 'pago-rechazado') app.innerHTML = htmlPagoRechazado();
   else if (pag === 'admin') {
     const { data:{ session } } = await DB.auth.getSession();
     if (!session) { ir('admin-login'); return; }
     app.innerHTML = htmlAdmin();
     cargarSecAdmin('kpis');
   }
+  actualizarContadorCarrito();
   window.scrollTo(0,0);
 }
 
@@ -383,6 +404,14 @@ function mostrarAvisoCarrito(item) {
   setTimeout(() => { av.style.opacity = '0'; av.style.transition = 'opacity .3s'; setTimeout(() => av.remove(), 300); }, 2500);
 }
 
+function htmlDetalle() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Detalle</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p><button class="btn btn-p" onclick="ir('archivo')">Volver al archivo</button></div>${htmlFooter()}`; }
+async function cargarDetalle() {}
+function htmlCarrito() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Carrito</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p><button class="btn btn-p" onclick="ir('home')">Volver al inicio</button></div>${htmlFooter()}`; }
+function htmlCheckout() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Checkout</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p></div>${htmlFooter()}`; }
+function initCheckout() {}
+function htmlPersonalizado() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Personalizado</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p></div>${htmlFooter()}`; }
+function initPersonalizado() {}
+
 // ============================================================
 // NAV / FOOTER
 // ============================================================
@@ -402,6 +431,13 @@ function htmlNav() {
 
 function initNavScroll() {
   window.onscroll = () => document.getElementById('nav')?.classList.toggle('sc', window.scrollY > 50);
+}
+
+function htmlCarritoFlotante() {
+  return `<button class="carrito-flotante" onclick="ir('carrito')" title="Ver carrito">
+    🛒
+    <span class="carrito-badge" id="carrito-badge" style="display:none">0</span>
+  </button>`;
 }
 
 function htmlFooter() {
