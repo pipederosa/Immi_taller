@@ -206,7 +206,7 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
 .hero-slide.on{opacity:1}
 .hero-slide img{width:100%;height:100%;object-fit:cover}
-@media(max-width:640px){.nav-links{display:none}.ham{display:flex}.nav-links.mob-open{display:flex;flex-direction:column;position:absolute;top:70px;left:0;right:0;background:var(--marfil);padding:20px;border-bottom:1px solid var(--lino-osc);gap:16px}.tam-grid{grid-template-columns:1fr}.pago-opts{grid-template-columns:1fr}section{padding:60px 0}.gal-grid{grid-template-columns:repeat(2,1fr)}.stepper{gap:0}.step{padding:12px 4px}.step-l{font-size:.6rem}}
+@media(max-width:640px){.nav-links{display:none}.ham{display:flex}.nav-links.mob-open{display:flex;flex-direction:column;position:absolute;top:70px;left:0;right:0;background:var(--marfil);padding:20px;border-bottom:1px solid var(--lino-osc);gap:16px}.tam-grid{grid-template-columns:1fr}.pago-opts{grid-template-columns:1fr}section{padding:60px 0}.gal-grid{grid-template-columns:repeat(2,1fr)}.stepper{gap:0}.step{padding:12px 4px}.step-l{font-size:.6rem}#detalle-content > div:nth-child(2){grid-template-columns:1fr!important;gap:24px!important}}
 `;
 
 // ============================================================
@@ -404,8 +404,216 @@ function mostrarAvisoCarrito(item) {
   setTimeout(() => { av.style.opacity = '0'; av.style.transition = 'opacity .3s'; setTimeout(() => av.remove(), 300); }, 2500);
 }
 
-function htmlDetalle() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Detalle</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p><button class="btn btn-p" onclick="ir('archivo')">Volver al archivo</button></div>${htmlFooter()}`; }
-async function cargarDetalle() {}
+let DETALLE_TIPO = null;
+let DETALLE_TAM = null;
+let DETALLE_CANT = 1;
+
+function htmlDetalle() {
+  return `${htmlNav()}
+  <div style="background:var(--marfil);min-height:100vh;padding:100px 0 60px">
+    <div class="wrap" id="detalle-content" style="max-width:1100px">
+      <p style="text-align:center;color:var(--suave);padding:60px">Cargando...</p>
+    </div>
+  </div>
+  <div class="overlay" id="modal-lugar"><div class="modal">
+    <button class="m-close" onclick="cerrarModal('modal-lugar')">✕</button>
+    <div style="text-align:center;font-size:2.5rem;margin-bottom:12px">🏪</div>
+    <h3 id="modal-lugar-nom">—</h3>
+    <div id="modal-lugar-info" style="margin-bottom:24px"></div>
+    <button class="btn btn-gh" onclick="cerrarModal('modal-lugar')" style="width:100%;justify-content:center">Cerrar</button>
+  </div></div>
+  ${htmlFooter()}`;
+}
+
+async function cargarDetalle() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const tipoId = params.get('id');
+  if (!tipoId) { document.getElementById('detalle-content').innerHTML = '<p style="text-align:center;padding:60px">Cuadro no encontrado.</p>'; return; }
+
+  // Cargar tipo + sus unidades
+  const [{ data:tipo },{ data:unidades }] = await Promise.all([
+    DB.from('tipos_cuadro').select('*').eq('id', tipoId).maybeSingle(),
+    DB.from('unidades_cuadro').select('*,lugares(id,nombre,direccion,telefono,google_maps_url)').eq('tipo_cuadro_id', tipoId).eq('activo', true).neq('estado', 'vendido'),
+  ]);
+
+  if (!tipo) { document.getElementById('detalle-content').innerHTML = '<p style="text-align:center;padding:60px">Cuadro no encontrado.</p><div style="text-align:center"><button class="btn btn-p" onclick="ir(\'archivo\')">Volver al archivo</button></div>'; return; }
+
+  DETALLE_TIPO = { ...tipo, unidades: unidades || [] };
+  // Tamaño por defecto: el primero disponible en stock, sino el primero del catálogo
+  const tamsCatalogo = tipo.tamanios_disponibles || ['15x15','20x20'];
+  const tamsConStock = [...new Set((unidades||[]).filter(u=>u.estado==='stock').map(u=>u.tamanio))];
+  DETALLE_TAM = tamsConStock[0] || tamsCatalogo[0];
+  DETALLE_CANT = 1;
+
+  renderDetalle();
+}
+
+function renderDetalle() {
+  const t = DETALLE_TIPO;
+  if (!t) return;
+
+  const tamsCatalogo = (t.tamanios_disponibles || ['15x15','20x20']).filter(x => x !== 'personalizado');
+  const enStock = t.unidades.filter(u => u.estado === 'stock' && u.tamanio === DETALLE_TAM);
+  const enCons = t.unidades.filter(u => u.estado === 'consignacion' && u.tamanio === DETALLE_TAM);
+  const hayStock = enStock.length > 0;
+  const hayConsig = enCons.length > 0;
+
+  const precioStock = PRECIOS[DETALLE_TAM] || 0;
+  const precioEncargo = PRECIOS_ENCARGADO[DETALLE_TAM] || 0;
+  const precioMostrar = hayStock ? precioStock : precioEncargo;
+  const esEncargo = !hayStock;
+
+  // Agrupar consignación por lugar
+  const porLugar = {};
+  enCons.forEach(u => {
+    const lugarId = u.lugares?.id || 'sin';
+    if (!porLugar[lugarId]) porLugar[lugarId] = { lugar: u.lugares, cantidad: 0 };
+    porLugar[lugarId].cantidad += 1;
+  });
+
+  document.getElementById('detalle-content').innerHTML = `
+    <button onclick="ir('archivo')" class="btn btn-gh" style="margin-bottom:24px">← Volver al archivo</button>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start">
+      <!-- IMAGEN -->
+      <div style="background:var(--lino);border-radius:var(--rm);aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:var(--sombra-m)">
+        ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="font-size:5rem;opacity:.2">✝</div>'}
+      </div>
+
+      <!-- INFO + ACCIONES -->
+      <div>
+        <span style="font-size:.78rem;letter-spacing:.2em;color:var(--oro);text-transform:uppercase;font-weight:500">${t.codigo_id}</span>
+        <h1 style="font-family:var(--display);font-size:2.6rem;margin:4px 0 16px">${t.nombre}</h1>
+        ${t.descripcion?`<p style="font-size:1rem;line-height:1.7;margin-bottom:32px">${t.descripcion}</p>`:''}
+
+        <!-- Selector tamaño -->
+        <div class="fg">
+          <label class="fl">Tamaño</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${tamsCatalogo.map(tam => `
+              <button class="f-btn ${DETALLE_TAM===tam?'on':''}" onclick="cambiarTamDetalle('${tam}')" style="flex:1;min-width:100px">${tam}</button>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Precio -->
+        <div style="background:var(--lino);border-radius:var(--rm);padding:20px;margin:24px 0">
+          <div style="font-size:.75rem;letter-spacing:.15em;color:var(--suave);text-transform:uppercase;margin-bottom:4px">${esEncargo?'Precio por encargo':'Precio'}</div>
+          <div style="font-family:var(--display);font-size:2.4rem;color:var(--oro-osc);line-height:1">
+            ${precioMostrar>0 ? '$' + Number(precioMostrar).toLocaleString('es-AR') : 'A consultar'}
+          </div>
+          ${esEncargo?'<p style="font-size:.85rem;color:var(--suave);margin-top:8px">⏳ Cuadro pintado bajo encargo. Tiempo estimado: 2-4 semanas.</p>':''}
+        </div>
+
+        <!-- Disponibilidad -->
+        ${hayStock ? `
+          <div style="background:#e8f5e9;border-left:3px solid #43a047;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:16px">
+            <strong style="color:#2e7d32">✓ En stock</strong>
+            <span style="color:var(--suave);font-size:.88rem"> · ${enStock.length} disponible${enStock.length!==1?'s':''} para entrega inmediata</span>
+          </div>
+        ` : `
+          <div style="background:#fff8e1;border-left:3px solid #f9a825;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:16px">
+            <strong style="color:#f57f17">📝 Encargar esta versión</strong>
+            <span style="color:var(--suave);font-size:.88rem"> · Sin stock disponible en ${DETALLE_TAM}. Lo pintamos para vos.</span>
+          </div>
+        `}
+
+        <!-- Si hay consignación -->
+        ${hayConsig ? `
+          <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:16px">
+            <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">🏪 También disponible en:</p>
+            ${Object.values(porLugar).map(({lugar, cantidad}) => `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--lino-osc)">
+                <div>
+                  <strong>${lugar?.nombre || 'Sin nombre'}</strong>
+                  <span style="color:var(--suave);font-size:.85rem"> · ${cantidad} unidad${cantidad!==1?'es':''}</span>
+                </div>
+                <button class="btn btn-gh" style="padding:6px 14px;font-size:.72rem" onclick="verLugar('${lugar?.id}')">Ver info</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Cantidad y agregar -->
+        <div style="display:flex;gap:16px;align-items:center;margin-top:24px;flex-wrap:wrap">
+          <div>
+            <label class="fl" style="margin-bottom:4px">Cantidad</label>
+            <div class="carrito-cant" style="display:inline-flex">
+              <button onclick="cambiarCantDetalle(-1)">−</button>
+              <span id="detalle-cant">${DETALLE_CANT}</span>
+              <button onclick="cambiarCantDetalle(1)">+</button>
+            </div>
+          </div>
+          <button class="btn ${esEncargo?'btn-g':'btn-p'}" onclick="agregarDetalleAlCarrito()" style="flex:1;min-width:200px;padding:16px 24px;font-size:.85rem">
+            ${esEncargo ? '📝 Encargar' : '🛒 Agregar al carrito'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function cambiarTamDetalle(tam) {
+  DETALLE_TAM = tam;
+  DETALLE_CANT = 1;
+  renderDetalle();
+}
+
+function cambiarCantDetalle(delta) {
+  DETALLE_CANT = Math.max(1, DETALLE_CANT + delta);
+  const el = document.getElementById('detalle-cant');
+  if (el) el.textContent = DETALLE_CANT;
+}
+
+function agregarDetalleAlCarrito() {
+  const t = DETALLE_TIPO;
+  if (!t) return;
+  const enStock = t.unidades.filter(u => u.estado === 'stock' && u.tamanio === DETALLE_TAM);
+  const hayStock = enStock.length > 0;
+  const precio = hayStock ? (PRECIOS[DETALLE_TAM] || 0) : (PRECIOS_ENCARGADO[DETALLE_TAM] || 0);
+
+  if (precio <= 0) {
+    alert('Este tamaño no tiene precio configurado todavía. Contactanos por WhatsApp.');
+    return;
+  }
+
+  // Si es stock, validar que no se pida más que lo disponible
+  if (hayStock && DETALLE_CANT > enStock.length) {
+    alert(`Solo hay ${enStock.length} unidad${enStock.length!==1?'es':''} en stock para ${DETALLE_TAM}. Vamos a agregar el máximo disponible.`);
+    DETALLE_CANT = enStock.length;
+  }
+
+  agregarAlCarrito({
+    tipoId: t.id,
+    tipoNombre: t.nombre,
+    tipoCodigo: t.codigo_id,
+    imagenUrl: t.imagen_url || null,
+    tamanio: DETALLE_TAM,
+    tipo: hayStock ? 'stock' : 'encargo',
+    precio: precio,
+    cantidad: DETALLE_CANT,
+    // Para stock guardamos las unidades disponibles (la asignación final es al confirmar)
+    unidadesDisponibles: hayStock ? enStock.map(u => u.id) : [],
+  });
+
+  // Resetear cantidad después de agregar
+  DETALLE_CANT = 1;
+  const el = document.getElementById('detalle-cant');
+  if (el) el.textContent = '1';
+}
+
+async function verLugar(lugarId) {
+  if (!lugarId) return;
+  const { data:l } = await DB.from('lugares').select('*').eq('id', lugarId).maybeSingle();
+  if (!l) return;
+  document.getElementById('modal-lugar-nom').textContent = l.nombre;
+  document.getElementById('modal-lugar-info').innerHTML = `
+    ${l.direccion ? `<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--lino-osc)"><span style="font-size:1.2rem">📍</span><span>${l.direccion}</span></div>` : ''}
+    ${l.telefono ? `<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--lino-osc)"><span style="font-size:1.2rem">📞</span><a href="tel:${l.telefono}">${l.telefono}</a></div>` : ''}
+    ${l.google_maps_url ? `<div style="margin-top:16px"><a href="${l.google_maps_url}" target="_blank" class="btn btn-g" style="width:100%;justify-content:center">🗺️ Ver en Google Maps</a></div>` : ''}
+  `;
+  document.getElementById('modal-lugar').classList.add('on');
+}
 function htmlCarrito() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Carrito</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p><button class="btn btn-p" onclick="ir('home')">Volver al inicio</button></div>${htmlFooter()}`; }
 function htmlCheckout() { return `${htmlNav()}<div class="page-hdr"><div class="wrap"><h1>Checkout</h1></div></div><div style="padding:60px 0;text-align:center"><p>En construcción</p></div>${htmlFooter()}`; }
 function initCheckout() {}
