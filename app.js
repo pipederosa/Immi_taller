@@ -206,6 +206,8 @@ let ARCHIVO_DATA = [];
 let FILTRO_ARCH = 'todos';
 let FILTRO_LUGARES = [];
 let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pago:null };
+let CARRITO = [];
+let PRECIOS_ENCARGADO = {};
 
 // ============================================================
 // INIT / ROUTER
@@ -216,12 +218,13 @@ function init() {
   document.head.appendChild(s);
   DB = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 
-  // Detectar retorno de MercadoPago (viene como ?pago=...&pedido=...)
+  cargarCarrito();
+
+  // Detectar retorno de MercadoPago
   const url = new URL(location.href);
   const pago = url.searchParams.get('pago');
   const pedido = url.searchParams.get('pedido');
   if (pago && pedido) {
-    // Limpiar query params y redirigir a hash
     history.replaceState(null, '', location.pathname);
     location.hash = `pago-${pago}?pedido=${pedido}`;
   }
@@ -303,10 +306,82 @@ async function cargarConfig() {
     DB.from('precios').select('*'),
   ]);
   if (cfg) cfg.forEach(r => CFG[r.clave] = r.valor);
-  if (pre) pre.forEach(r => PRECIOS[r.tamanio] = Number(r.precio));
+  if (pre) pre.forEach(r => {
+    PRECIOS[r.tamanio] = Number(r.precio);
+    PRECIOS_ENCARGADO[r.tamanio] = Number(r.precio_encargado || r.precio);
+  });
 }
 
 function cerrarModal(id) { document.getElementById(id)?.classList.remove('on'); }
+
+// ============================================================
+// CARRITO
+// ============================================================
+function cargarCarrito() {
+  try {
+    const saved = localStorage.getItem('immi_carrito');
+    CARRITO = saved ? JSON.parse(saved) : [];
+  } catch (e) { CARRITO = []; }
+}
+
+function guardarCarrito() {
+  localStorage.setItem('immi_carrito', JSON.stringify(CARRITO));
+  actualizarContadorCarrito();
+}
+
+function agregarAlCarrito(item) {
+  // item = { tipoId, tipoNombre, tipoCodigo, imagenUrl, tamanio, tipo: 'stock'|'encargo', precio, cantidad, unidadId? }
+  // Si ya hay un item igual (mismo cuadro, tamaño y tipo), sumar cantidad
+  const existe = CARRITO.find(i => i.tipoId === item.tipoId && i.tamanio === item.tamanio && i.tipo === item.tipo);
+  if (existe) {
+    existe.cantidad += item.cantidad;
+  } else {
+    CARRITO.push(item);
+  }
+  guardarCarrito();
+  mostrarAvisoCarrito(item);
+}
+
+function quitarDelCarrito(index) {
+  CARRITO.splice(index, 1);
+  guardarCarrito();
+  if (PAGINA === 'carrito') render('carrito');
+}
+
+function cambiarCantidadCarrito(index, delta) {
+  CARRITO[index].cantidad += delta;
+  if (CARRITO[index].cantidad < 1) {
+    quitarDelCarrito(index);
+    return;
+  }
+  guardarCarrito();
+  if (PAGINA === 'carrito') render('carrito');
+}
+
+function totalCarrito() {
+  return CARRITO.reduce((s, i) => s + (i.precio * i.cantidad), 0);
+}
+
+function cantidadTotalCarrito() {
+  return CARRITO.reduce((s, i) => s + i.cantidad, 0);
+}
+
+function actualizarContadorCarrito() {
+  const el = document.getElementById('carrito-badge');
+  if (el) {
+    const total = cantidadTotalCarrito();
+    el.textContent = total;
+    el.style.display = total > 0 ? 'flex' : 'none';
+  }
+}
+
+function mostrarAvisoCarrito(item) {
+  const av = document.createElement('div');
+  av.style.cssText = 'position:fixed;top:80px;right:20px;background:#2e7d32;color:white;padding:14px 20px;border-radius:var(--rm);box-shadow:var(--sombra-m);z-index:3000;font-size:.9rem;animation:fadeUp .3s ease;max-width:300px';
+  av.innerHTML = `✓ Agregado al carrito: <strong>${item.tipoNombre}</strong> (${item.tamanio}) x${item.cantidad}`;
+  document.body.appendChild(av);
+  setTimeout(() => { av.style.opacity = '0'; av.style.transition = 'opacity .3s'; setTimeout(() => av.remove(), 300); }, 2500);
+}
 
 // ============================================================
 // NAV / FOOTER
