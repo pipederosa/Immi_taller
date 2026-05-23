@@ -202,6 +202,7 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .adm-menu-btn{display:flex;position:fixed;top:16px;left:16px;z-index:1600;background:var(--carbon);color:var(--oro-cl);border:none;width:44px;height:44px;border-radius:var(--r);cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--sombra);font-size:1.4rem}
 .adm-overlay{position:fixed;inset:0;background:rgba(44,36,22,.5);z-index:1400}
 .adm-overlay.on{display:block}
+.adm-main > div:nth-child(3){grid-template-columns:1fr!important;max-width:100%!important}
 #checkout-content > div:nth-child(2),#checkout-content > div:nth-child(3){grid-template-columns:1fr!important;gap:24px!important}
 }
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
@@ -2917,31 +2918,52 @@ async function confirmarCobro() {
 // ---- PRECIOS ----
 async function renderPrecios(main) {
   const [{ data:pw },{ data:pc }] = await Promise.all([
-    DB.from('precios').select('*'),
-    DB.from('precios_consignacion').select('*'),
+    DB.from('precios').select('*').order('tamanio'),
+    DB.from('precios_consignacion').select('*').order('tamanio'),
   ]);
   main.innerHTML=`
   <div class="adm-hdr"><h1>Precios</h1></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;max-width:900px">
+  <p style="color:var(--suave);margin-bottom:24px;max-width:780px">Configurá los precios según el tipo de venta. Los <strong>precios web</strong> son para los cuadros que ya tenés en stock. Los <strong>precios encargado</strong> son para cuadros que pintás a pedido (lleva más tiempo, suele ser un poco más caro). Los <strong>precios consignación</strong> son lo que te paga el lugar cuando se vende ahí.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;max-width:1100px">
+    <!-- WEB / STOCK -->
     <div>
-      <h3 style="font-family:var(--display);font-size:1.4rem;margin-bottom:16px">Precios web (clientes)</h3>
-      ${(pw||[]).map(p=>`<div class="stat" style="margin-bottom:12px;text-align:left">
+      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">💰 Precios web (stock)</h3>
+      <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Cuadros disponibles para entrega inmediata</p>
+      ${(pw||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
         <div class="stat-l">${p.tamanio}</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap">
-          <div class="stat-v" style="font-size:1.4rem">$${Number(p.precio).toLocaleString('es-AR')}</div>
-          <input type="number" class="fi" id="pw-${p.tamanio}" value="${p.precio}" style="width:120px"/>
-          <button class="btn btn-g" style="padding:8px 14px;font-size:.75rem" onclick="guardarPrecioWeb('${p.tamanio}')">Guardar</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <div class="stat-v" style="font-size:1.2rem">$${Number(p.precio).toLocaleString('es-AR')}</div>
+          <input type="number" class="fi" id="pw-${p.tamanio}" value="${p.precio}" style="width:110px;padding:8px 10px"/>
+          <button class="btn btn-g" style="padding:8px 12px;font-size:.72rem" onclick="guardarPrecioWeb('${p.tamanio}')">Guardar</button>
         </div>
       </div>`).join('')}
     </div>
+
+    <!-- ENCARGADO -->
     <div>
-      <h3 style="font-family:var(--display);font-size:1.4rem;margin-bottom:16px">Precios consignación (nos paga el lugar)</h3>
-      ${(pc||[]).map(p=>`<div class="stat" style="margin-bottom:12px;text-align:left">
+      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">📝 Precios encargado</h3>
+      <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Cuadros pintados a pedido (sin stock)</p>
+      ${(pw||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
         <div class="stat-l">${p.tamanio}</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap">
-          <div class="stat-v" style="font-size:1.4rem">$${Number(p.precio).toLocaleString('es-AR')}</div>
-          <input type="number" class="fi" id="pc-${p.tamanio}" value="${p.precio}" style="width:120px"/>
-          <button class="btn btn-g" style="padding:8px 14px;font-size:.75rem" onclick="guardarPrecioConsig('${p.tamanio}')">Guardar</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <div class="stat-v" style="font-size:1.2rem">$${Number(p.precio_encargado||0).toLocaleString('es-AR')}</div>
+          <input type="number" class="fi" id="pe-${p.tamanio}" value="${p.precio_encargado||0}" style="width:110px;padding:8px 10px"/>
+          <button class="btn btn-g" style="padding:8px 12px;font-size:.72rem" onclick="guardarPrecioEncargado('${p.tamanio}')">Guardar</button>
+        </div>
+      </div>`).join('')}
+    </div>
+
+    <!-- CONSIGNACIÓN -->
+    <div>
+      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">🏪 Precios consignación</h3>
+      <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Lo que te paga el lugar por cuadro vendido</p>
+      ${(pc||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
+        <div class="stat-l">${p.tamanio}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <div class="stat-v" style="font-size:1.2rem">$${Number(p.precio).toLocaleString('es-AR')}</div>
+          <input type="number" class="fi" id="pc-${p.tamanio}" value="${p.precio}" style="width:110px;padding:8px 10px"/>
+          <button class="btn btn-g" style="padding:8px 12px;font-size:.72rem" onclick="guardarPrecioConsig('${p.tamanio}')">Guardar</button>
         </div>
       </div>`).join('')}
     </div>
@@ -2950,14 +2972,30 @@ async function renderPrecios(main) {
 
 async function guardarPrecioWeb(tam) {
   const v = document.getElementById(`pw-${tam}`)?.value;
-  const { error } = await DB.from('precios').update({precio:Number(v),updated_at:new Date()}).eq('tamanio',tam);
-  if (error) alert('Error');
-  else { alert('Precio actualizado ✓'); await cargarConfig(); renderPrecios(document.getElementById('adm-main')); }
+  const { error } = await DB.from('precios').update({ precio: Number(v), updated_at: new Date() }).eq('tamanio', tam);
+  if (error) alert('Error: ' + error.message);
+  else {
+    await cargarConfig();
+    renderPrecios(document.getElementById('adm-main'));
+  }
 }
+
 async function guardarPrecioConsig(tam) {
   const v = document.getElementById(`pc-${tam}`)?.value;
-  const { error } = await DB.from('precios_consignacion').update({precio:Number(v),updated_at:new Date()}).eq('tamanio',tam);
-  if (error) alert('Error'); else alert('Precio actualizado ✓');
+  const { error } = await DB.from('precios_consignacion').update({ precio: Number(v), updated_at: new Date() }).eq('tamanio', tam);
+  if (error) alert('Error: ' + error.message);
+  else {
+    renderPrecios(document.getElementById('adm-main'));
+  }
+}
+async function guardarPrecioEncargado(tam) {
+  const v = document.getElementById(`pe-${tam}`)?.value;
+  const { error } = await DB.from('precios').update({ precio_encargado: Number(v), updated_at: new Date() }).eq('tamanio', tam);
+  if (error) alert('Error: ' + error.message);
+  else {
+    await cargarConfig();
+    renderPrecios(document.getElementById('adm-main'));
+  }
 }
 
 // ---- LUGARES ----
