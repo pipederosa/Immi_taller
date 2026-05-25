@@ -2501,6 +2501,7 @@ async function eliminarTipo(id, nombre) {
 
 // ---- STOCK ----
 let FILTRO_STOCK_BUSQ = '';
+let FILTRO_STOCK_ORIGENES = [];
 
 async function renderStock(main) {
   const [{ data:tipos },{ data:unidades },{ data:lugares }] = await Promise.all([
@@ -2533,10 +2534,29 @@ async function renderStock(main) {
     <div class="stat"><div class="stat-v">${totalVend}</div><div class="stat-l">Vendidos</div></div>
   </div>
 
-  <!-- BUSCADOR -->
-  <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px">
-    <input type="text" class="fi" id="stock-busq" value="${FILTRO_STOCK_BUSQ}" placeholder=" Buscar por nombre o código..." oninput="FILTRO_STOCK_BUSQ=this.value;renderStockGrid()"/>
+  <!-- BUSCADOR Y FILTROS -->
+<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+  <input type="text" class="fi" id="stock-busq" value="${FILTRO_STOCK_BUSQ}" placeholder="Buscar por nombre o código..." oninput="FILTRO_STOCK_BUSQ=this.value;renderStockGrid()" style="flex:1;min-width:200px"/>
+  <div style="position:relative">
+    <button class="f-btn" onclick="toggleDropdownOrigenStock()" id="btn-drop-orig-stock">Origen <span id="orig-stock-count"></span> ▾</button>
+    <div id="drop-orig-stock" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;border-bottom:1px solid var(--lino-osc);margin-bottom:4px" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" value="stock" onchange="toggleOrigenStock(this)" ${FILTRO_STOCK_ORIGENES.includes('stock')?'checked':''} style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
+        Stock propio
+      </label>
+       ${(lugares||[]).map(l => `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" value="${l.id}" onchange="toggleOrigenStock(this)" ${FILTRO_STOCK_ORIGENES.includes(l.id)?'checked':''} style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
+          ${l.nombre}
+        </label>
+      `).join('')}
+      <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px;margin-top:4px">
+        <button onclick="limpiarOrigenStock()" style="background:none;border:none;color:var(--suave);font-size:.75rem;cursor:pointer;font-family:var(--body)">Limpiar</button>
+        <button onclick="document.getElementById('drop-orig-stock').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
+      </div>
+    </div>
   </div>
+</div>
 
   <div id="stock-grid">
   ${renderStockGridContent(tiposFiltrados, unidades||[])}
@@ -2615,17 +2635,32 @@ async function renderStock(main) {
       inp.focus();
       inp.setSelectionRange(busq.length, busq.length);
     }
+    actualizarContadorOrigenStock();
   }, 0);
 }
 
 function renderStockGridContent(tipos, unidades) {
-  if (tipos.length === 0) return '<p style="text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>';
+  if (tipos.length === 0) return '<p style="text-align:center;color:var(--suave);padding:40px">No hay cuadros con esos filtros.</p>';
+  const incluyeStock = FILTRO_STOCK_ORIGENES.includes('stock');
+  const lugaresSel = FILTRO_STOCK_ORIGENES.filter(x => x !== 'stock');
+  const hayFiltro = FILTRO_STOCK_ORIGENES.length > 0;
+
   return tipos.map(t => {
     const uTipo = unidades.filter(u => u.tipo_cuadro_id === t.id);
     const enS = uTipo.filter(u => u.estado === 'stock');
     const enC = uTipo.filter(u => u.estado === 'consignacion');
     const enV = uTipo.filter(u => u.estado === 'vendido');
     if (uTipo.length === 0) return '';
+
+    // Filtrar las unidades a mostrar según los orígenes seleccionados
+    let unidadesMostrar = uTipo.filter(u => u.estado !== 'vendido');
+    if (hayFiltro) {
+      unidadesMostrar = unidadesMostrar.filter(u =>
+        (incluyeStock && u.estado === 'stock') ||
+        (u.estado === 'consignacion' && lugaresSel.includes(u.lugar_id))
+      );
+    }
+
     return `<div class="stock-tipo-card">
       <div class="stock-tipo-hdr">
         ${t.imagen_url?`<img src="${t.imagen_url}" class="stock-tipo-img"/>`:'<div class="stock-tipo-img">✝</div>'}
@@ -2640,7 +2675,7 @@ function renderStockGridContent(tipos, unidades) {
         </div>
       </div>
       <div class="stock-unidades">
-        ${uTipo.filter(u=>u.estado!=='vendido').map(u=>`
+        ${unidadesMostrar.map(u=>`
         <div class="unidad-row">
           <span class="badge ${u.estado==='stock'?'b-stock':'b-cons'}">${u.estado==='stock'?'Stock':'Consignación'}</span>
           <span style="font-size:.85rem">${u.tamanio}</span>
@@ -2659,12 +2694,63 @@ async function renderStockGrid() {
     DB.from('unidades_cuadro').select('*,lugares(nombre)').eq('activo',true),
   ]);
   const busq = FILTRO_STOCK_BUSQ.toLowerCase().trim();
-  const tiposFiltrados = busq
+  let tiposFiltrados = busq
     ? (tipos||[]).filter(t => t.nombre.toLowerCase().includes(busq) || t.codigo_id.toLowerCase().includes(busq))
     : (tipos||[]);
+
+  // Filtro multi-origen
+  if (FILTRO_STOCK_ORIGENES.length > 0) {
+    const incluyeStock = FILTRO_STOCK_ORIGENES.includes('stock');
+    const lugaresSel = FILTRO_STOCK_ORIGENES.filter(x => x !== 'stock');
+    tiposFiltrados = tiposFiltrados.filter(t =>
+      (unidades||[]).some(u =>
+        u.tipo_cuadro_id === t.id &&
+        ((incluyeStock && u.estado === 'stock') ||
+         (lugaresSel.length > 0 && u.estado === 'consignacion' && lugaresSel.includes(u.lugar_id)))
+      )
+    );
+  }
+
   const el = document.getElementById('stock-grid');
   if (el) el.innerHTML = renderStockGridContent(tiposFiltrados, unidades||[]);
 }
+
+function toggleDropdownOrigenStock() {
+  const d = document.getElementById('drop-orig-stock');
+  d.style.display = d.style.display === 'block' ? 'none' : 'block';
+}
+
+function toggleOrigenStock(checkbox) {
+  if (checkbox.checked) {
+    if (!FILTRO_STOCK_ORIGENES.includes(checkbox.value)) FILTRO_STOCK_ORIGENES.push(checkbox.value);
+  } else {
+    FILTRO_STOCK_ORIGENES = FILTRO_STOCK_ORIGENES.filter(id => id !== checkbox.value);
+  }
+  actualizarContadorOrigenStock();
+  renderStockGrid();
+}
+
+function limpiarOrigenStock() {
+  FILTRO_STOCK_ORIGENES = [];
+  document.querySelectorAll('#drop-orig-stock input[type="checkbox"]').forEach(cb => cb.checked = false);
+  actualizarContadorOrigenStock();
+  renderStockGrid();
+}
+
+function actualizarContadorOrigenStock() {
+  const el = document.getElementById('orig-stock-count');
+  if (el) el.textContent = FILTRO_STOCK_ORIGENES.length > 0 ? `(${FILTRO_STOCK_ORIGENES.length})` : '';
+}
+
+// Cerrar dropdown si se clickea afuera
+document.addEventListener('click', (e) => {
+  const drop = document.getElementById('drop-orig-stock');
+  const btn = document.getElementById('btn-drop-orig-stock');
+  if (drop && drop.style.display === 'block' && !drop.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    drop.style.display = 'none';
+  }
+});
+
 async function cargarUnidadesVenta(tipoId) {
   const wrap = document.getElementById('v-unid-wrap');
   const sel = document.getElementById('v-unid-id');
