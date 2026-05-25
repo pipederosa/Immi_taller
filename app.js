@@ -733,7 +733,7 @@ function renderCheckout() {
         <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="co-nom" value="${CHECKOUT.nombre}"/></div>
         <div class="fg"><label class="fl">Email *</label><input class="fi" type="email" id="co-email" value="${CHECKOUT.email}"/></div>
         <div class="fg"><label class="fl">Teléfono / WhatsApp</label><input class="fi" type="tel" id="co-tel" value="${CHECKOUT.tel}"/></div>
-        <div class="fg"><label class="fl">Zona de entrega *</label><input class="fi" id="co-zona" value="${CHECKOUT.zona}"/><p style="font-size:.8rem;color:var(--suave);margin-top:6px">⚠️ No realizamos envíos a domicilio. La entrega se coordina personalmente.</p></div>
+        <div class="fg"><label class="fl">Zona de entrega *</label><input class="fi" id="co-zona" value="${CHECKOUT.zona}"/><p style="font-size:.8rem;color:var(--suave);margin-top:6px">⚠️ No realizamos envíos a domicilio. La entrega se coordina personalmente. Hacemos entregas por: Pilar, Tigre, San Isidro, Nuñez, Palermo y Recoleta.</p></div>
 
         <h3 style="font-family:var(--display);font-size:1.6rem;margin:32px 0 16px">Forma de pago</h3>
         <div class="pago-opts">
@@ -1200,7 +1200,7 @@ function htmlPersoPaso3() {
 
   <div style="display:flex;gap:12px">
     <button class="btn btn-gh" onclick="renderPersoPaso(2)">← Volver</button>
-    <button class="btn btn-g" onclick="confirmarPerso()" id="btn-perso-conf" style="flex:1">✨ Enviar encargo</button>
+    <button class="btn btn-g" onclick="confirmarPerso()" id="btn-perso-conf" style="flex:1"> Enviar encargo</button>
   </div>`;
 }
 
@@ -1247,7 +1247,7 @@ async function confirmarPerso() {
   if (error) {
     alert('Error al enviar el encargo. Intentá de nuevo.');
     btn.disabled = false;
-    btn.textContent = '✨ Enviar encargo';
+    btn.textContent = ' Enviar encargo';
     return;
   }
 
@@ -1506,10 +1506,11 @@ function htmlArchivo() {
     <!-- Banner personalizado -->
     <div style="background:linear-gradient(135deg,var(--carbon) 0%,#3d3020 100%);color:var(--lino);border-radius:var(--rm);padding:32px;margin-bottom:40px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
       <div>
-        <span style="font-size:.75rem;letter-spacing:.25em;text-transform:uppercase;color:var(--oro-cl);display:block;margin-bottom:8px">✨ A medida</span>
-        <h3 style="font-family:var(--display);font-size:1.8rem;color:var(--lino);margin-bottom:4px">Encargá tu propio diseño</h3>
-        <p style="color:rgba(244,240,232,.7);font-size:.95rem">Un cuadro único hecho especialmente para vos.</p>
-      </div>
+  <span style="font-size:.75rem;letter-spacing:.25em;text-transform:uppercase;color:var(--oro-cl);display:block;margin-bottom:8px">✨ A medida</span>
+  <h3 style="font-family:var(--display);font-size:1.8rem;color:var(--lino);margin-bottom:4px">Encargá tu propio diseño</h3>
+  <p style="color:rgba(244,240,232,.7);font-size:.95rem">Un cuadro único hecho especialmente para vos.</p>
+  <p style="color:rgba(244,240,232,.7);font-size:.95rem;margin-top:4px">¡Podés modificar un cuadro existente o crear uno completamente nuevo!</p>
+</div>
       <button class="btn btn-g" onclick="ir('personalizado')" style="font-size:.85rem;padding:16px 32px">🎨 Encargar mi cuadro</button>
     </div>
 
