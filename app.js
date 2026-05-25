@@ -1184,7 +1184,11 @@ function htmlPersoPaso3() {
   <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="ps-nom" value="${PERSO.nombre}"/></div>
   <div class="fg"><label class="fl">Email *</label><input class="fi" type="email" id="ps-email" value="${PERSO.email}"/></div>
   <div class="fg"><label class="fl">Teléfono / WhatsApp</label><input class="fi" type="tel" id="ps-tel" value="${PERSO.tel}"/></div>
-  <div class="fg"><label class="fl">Zona de entrega *</label><input class="fi" id="ps-zona" value="${PERSO.zona}"/></div>
+  <div class="fg">
+  <label class="fl">Zona de entrega *</label>
+  <input class="fi" id="ps-zona" value="${PERSO.zona}"/>
+  <p style="font-size:.8rem;color:var(--suave);margin-top:6px">⚠️ No realizamos envíos a domicilio. La entrega se coordina personalmente. Hacemos entregas por: Pilar, Tigre, San Isidro, Nuñez, Palermo y Recoleta.</p>
+</div>
 
   <div style="background:var(--lino);border-radius:var(--rm);padding:20px;margin:24px 0">
     <h4 style="font-family:var(--display);margin-bottom:12px">📋 Resumen del encargo</h4>
