@@ -221,6 +221,7 @@ let PAGINA = 'home';
 let TIPOS_CACHE = [];
 let ARCHIVO_DATA = [];
 let FILTRO_ARCH = 'todos';
+let FILTRO_ARCH_BUSQ = '';
 let FILTRO_LUGARES = [];
 let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pago:null };
 let CARRITO = [];
@@ -1512,20 +1513,23 @@ function htmlArchivo() {
       <button class="btn btn-g" onclick="ir('personalizado')" style="font-size:.85rem;padding:16px 32px">🎨 Encargar mi cuadro</button>
     </div>
 
-    <div class="filtros">
-      <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
-      <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
-      <div style="position:relative">
-        <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Origen <span id="lugares-count"></span> ▾</button>
-        <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
-          <div id="drop-lugares-content" style="padding:8px 0">Cargando...</div>
-          <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px">
-            <button onclick="limpiarLugares()" style="background:none;border:none;color:var(--suave);font-size:.75rem;cursor:pointer;font-family:var(--body)">Limpiar</button>
-            <button onclick="document.getElementById('drop-lugares').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
-          </div>
-        </div>
+    <div style="margin-bottom:20px">
+  <input type="text" class="fi" id="busq-archivo" placeholder="Buscar cuadro por nombre o código..." style="max-width:500px" oninput="FILTRO_ARCH_BUSQ=this.value;renderArchivo()"/>
+</div>
+<div class="filtros">
+  <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
+  <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
+  <div style="position:relative">
+    <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Origen <span id="lugares-count"></span> ▾</button>
+    <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
+      <div id="drop-lugares-content" style="padding:8px 0">Cargando...</div>
+      <div style="border-top:1px solid var(--lino-osc);padding:8px 16px;display:flex;justify-content:space-between;gap:8px">
+        <button onclick="limpiarLugares()" style="background:none;border:none;color:var(--suave);font-size:.75rem;cursor:pointer;font-family:var(--body)">Limpiar</button>
+        <button onclick="document.getElementById('drop-lugares').style.display='none'" style="background:none;border:none;color:var(--oro);font-size:.75rem;cursor:pointer;font-family:var(--body)">Cerrar</button>
       </div>
     </div>
+  </div>
+</div>
 
     <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:28px;padding-bottom:40px">
       <p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">Cargando...</p>
@@ -1617,6 +1621,13 @@ async function cargarArchivo() {
 
 function renderArchivo() {
   let data = ARCHIVO_DATA;
+  const busq = (FILTRO_ARCH_BUSQ || '').toLowerCase().trim();
+  if (busq) {
+    data = data.filter(t =>
+      (t.nombre || '').toLowerCase().includes(busq) ||
+      (t.codigo_id || '').toLowerCase().includes(busq)
+    );
+  }
   const filtroDispActivo = FILTRO_ARCH === 'disponibles';
   const filtroLugarActivo = FILTRO_LUGARES.length > 0;
 
@@ -1669,6 +1680,11 @@ function renderArchivo() {
       </div>
     </div>`;
   }).join('');
+  const inp = document.getElementById('busq-archivo');
+if (inp && busq && document.activeElement !== inp) {
+  inp.focus();
+  inp.setSelectionRange(busq.length, busq.length);
+}
 }
 
 // ============================================================
@@ -2516,7 +2532,7 @@ async function renderStock(main) {
 
   <!-- BUSCADOR -->
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px">
-    <input type="text" class="fi" id="stock-busq" value="${FILTRO_STOCK_BUSQ}" placeholder="🔍 Buscar por nombre o código..." oninput="FILTRO_STOCK_BUSQ=this.value;renderStockGrid()"/>
+    <input type="text" class="fi" id="stock-busq" value="${FILTRO_STOCK_BUSQ}" placeholder=" Buscar por nombre o código..." oninput="FILTRO_STOCK_BUSQ=this.value;renderStockGrid()"/>
   </div>
 
   <div id="stock-grid">
@@ -2755,8 +2771,8 @@ async function renderPedidos(main) {
 
   <!-- FILTROS -->
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-    <input type="text" class="fi" placeholder="🔍 N° pedido" value="${FILTRO_PED.busqNum}" oninput="FILTRO_PED.busqNum=this.value;renderPedidosTbl()"/>
-    <input type="text" class="fi" placeholder="🔍 Cliente" value="${FILTRO_PED.busqCli}" oninput="FILTRO_PED.busqCli=this.value;renderPedidosTbl()"/>
+    <input type="text" class="fi" placeholder=" N° pedido" value="${FILTRO_PED.busqNum}" oninput="FILTRO_PED.busqNum=this.value;renderPedidosTbl()"/>
+    <input type="text" class="fi" placeholder=" Cliente" value="${FILTRO_PED.busqCli}" oninput="FILTRO_PED.busqCli=this.value;renderPedidosTbl()"/>
     <select class="fs" onchange="FILTRO_PED.tipo=this.value;renderPedidosTbl()">
       <option value="">Todos los tipos</option>
       <option value="stock" ${FILTRO_PED.tipo==='stock'?'selected':''}>Stock</option>
@@ -2864,8 +2880,8 @@ async function renderVentas(main) {
   <!-- FILTROS -->
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
     <input type="date" class="fi" value="${FILTRO_VTA.fecha}" oninput="FILTRO_VTA.fecha=this.value;renderVentasTbl()" title="Filtrar por fecha"/>
-    <input type="text" class="fi" placeholder="🔍 Cuadro" value="${FILTRO_VTA.cuadro}" oninput="FILTRO_VTA.cuadro=this.value;renderVentasTbl()"/>
-    <input type="text" class="fi" placeholder="🔍 Cliente" value="${FILTRO_VTA.cliente}" oninput="FILTRO_VTA.cliente=this.value;renderVentasTbl()"/>
+    <input type="text" class="fi" placeholder=" Cuadro" value="${FILTRO_VTA.cuadro}" oninput="FILTRO_VTA.cuadro=this.value;renderVentasTbl()"/>
+    <input type="text" class="fi" placeholder=" Cliente" value="${FILTRO_VTA.cliente}" oninput="FILTRO_VTA.cliente=this.value;renderVentasTbl()"/>
     <select class="fs" onchange="FILTRO_VTA.canal=this.value;renderVentasTbl()">
       <option value="">Todos los canales</option>
       <option value="presencial" ${FILTRO_VTA.canal==='presencial'?'selected':''}>Presencial</option>
