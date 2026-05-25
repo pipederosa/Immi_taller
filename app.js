@@ -2481,6 +2481,8 @@ async function eliminarTipo(id, nombre) {
 }
 
 // ---- STOCK ----
+let FILTRO_STOCK_BUSQ = '';
+
 async function renderStock(main) {
   const [{ data:tipos },{ data:unidades },{ data:lugares }] = await Promise.all([
     DB.from('tipos_cuadro').select('*').eq('activo',true).order('codigo_id'),
@@ -2491,6 +2493,12 @@ async function renderStock(main) {
   const totalStock = (unidades||[]).filter(u=>u.estado==='stock').length;
   const totalCons = (unidades||[]).filter(u=>u.estado==='consignacion').length;
   const totalVend = (unidades||[]).filter(u=>u.estado==='vendido').length;
+
+  // Aplicar filtro de búsqueda
+  const busq = FILTRO_STOCK_BUSQ.toLowerCase().trim();
+  const tiposFiltrados = busq
+    ? (tipos||[]).filter(t => t.nombre.toLowerCase().includes(busq) || t.codigo_id.toLowerCase().includes(busq))
+    : (tipos||[]);
 
   main.innerHTML=`
   <div class="adm-hdr">
@@ -2505,39 +2513,16 @@ async function renderStock(main) {
     <div class="stat"><div class="stat-v">${totalCons}</div><div class="stat-l">En consignación</div></div>
     <div class="stat"><div class="stat-v">${totalVend}</div><div class="stat-l">Vendidos</div></div>
   </div>
-  <div>
-  ${(tipos||[]).map(t=>{
-    const uTipo = (unidades||[]).filter(u=>u.tipo_cuadro_id===t.id);
-    const enS = uTipo.filter(u=>u.estado==='stock');
-    const enC = uTipo.filter(u=>u.estado==='consignacion');
-    const enV = uTipo.filter(u=>u.estado==='vendido');
-    if (uTipo.length===0) return '';
-    return `<div class="stock-tipo-card">
-      <div class="stock-tipo-hdr">
-        ${t.imagen_url?`<img src="${t.imagen_url}" class="stock-tipo-img"/>`:'<div class="stock-tipo-img">✝</div>'}
-        <div class="stock-tipo-info">
-          <div class="stock-tipo-cod">${t.codigo_id}</div>
-          <div class="stock-tipo-nom">${t.nombre}</div>
-          <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
-            ${enS.length?`<span class="badge b-stock">${enS.length} en stock</span>`:''}
-            ${enC.length?`<span class="badge b-cons">${enC.length} en consignación</span>`:''}
-            ${enV.length?`<span class="badge b-vend">${enV.length} vendidos</span>`:''}
-          </div>
-        </div>
-      </div>
-      <div class="stock-unidades">
-        ${uTipo.filter(u=>u.estado!=='vendido').map(u=>`
-        <div class="unidad-row">
-          <span class="badge ${u.estado==='stock'?'b-stock':'b-cons'}">${u.estado==='stock'?'Stock':'Consignación'}</span>
-          <span style="font-size:.85rem">${u.tamanio}</span>
-          <span style="font-size:.82rem;color:var(--suave)">${u.tecnica||'—'}</span>
-          ${u.estado==='consignacion'?`<span style="font-size:.82rem;color:var(--suave)">📍 ${u.lugares?.nombre||'—'}</span>`:''}
-          <button class="btn btn-gh" style="padding:4px 10px;font-size:.72rem;margin-left:auto" onclick="eliminarUnidad('${u.id}')">✕ Quitar</button>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  }).join('')}
+
+  <!-- BUSCADOR -->
+  <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px">
+    <input type="text" class="fi" id="stock-busq" value="${FILTRO_STOCK_BUSQ}" placeholder="🔍 Buscar por nombre o código..." oninput="FILTRO_STOCK_BUSQ=this.value;renderStockGrid()"/>
   </div>
+
+  <div id="stock-grid">
+  ${renderStockGridContent(tiposFiltrados, unidades||[])}
+  </div>
+
   <div class="overlay" id="modal-carga"><div class="modal" style="max-width:560px">
     <button class="m-close" onclick="cerrarModal('modal-carga')">✕</button>
     <h3>📥 Cargar cuadros al stock</h3>
@@ -2570,20 +2555,20 @@ async function renderStock(main) {
     <button class="m-close" onclick="cerrarModal('modal-venta')">✕</button>
     <h3>💰 Registrar venta</h3>
     <p style="margin-bottom:24px">Venta presencial o consignación que ya se realizó</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Canal *</label>
+        <select class="fs" id="v-canal" onchange="cambiarCanalVenta(this.value)">
+          <option value="presencial">Presencial</option>
+          <option value="consignacion">Consignación</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Precio de venta ($)</label><input class="fi" type="number" id="v-precio" placeholder="Vacío para auto"/></div>
+    </div>
     <div class="fg"><label class="fl">Tipo de cuadro *</label>
       <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
     </div>
     <div class="fg" id="v-unid-wrap" style="display:none"><label class="fl">Unidad vendida *</label>
       <select class="fs" id="v-unid-id"><option value="">Seleccioná...</option></select>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="fg"><label class="fl">Canal *</label>
-        <select class="fs" id="v-canal" onchange="document.getElementById('v-lugar-wrap').style.display=this.value==='consignacion'?'block':'none'">
-          <option value="presencial">Presencial</option>
-          <option value="consignacion">Consignación</option>
-        </select>
-      </div>
-      <div class="fg"><label class="fl">Precio de venta ($)</label><input class="fi" type="number" id="v-precio" placeholder="Vacío si personalizado"/></div>
     </div>
     <div id="v-lugar-wrap" style="display:none">
       <div class="fg"><label class="fl">Lugar de consignación</label>
@@ -2603,14 +2588,93 @@ async function renderStock(main) {
       <button class="btn btn-gh" onclick="cerrarModal('modal-venta')">Cancelar</button>
     </div>
   </div></div>`;
+
+  // Mantener foco en buscador después de re-render
+  setTimeout(() => {
+    const inp = document.getElementById('stock-busq');
+    if (inp && document.activeElement !== inp && busq) {
+      inp.focus();
+      inp.setSelectionRange(busq.length, busq.length);
+    }
+  }, 0);
 }
 
+function renderStockGridContent(tipos, unidades) {
+  if (tipos.length === 0) return '<p style="text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>';
+  return tipos.map(t => {
+    const uTipo = unidades.filter(u => u.tipo_cuadro_id === t.id);
+    const enS = uTipo.filter(u => u.estado === 'stock');
+    const enC = uTipo.filter(u => u.estado === 'consignacion');
+    const enV = uTipo.filter(u => u.estado === 'vendido');
+    if (uTipo.length === 0) return '';
+    return `<div class="stock-tipo-card">
+      <div class="stock-tipo-hdr">
+        ${t.imagen_url?`<img src="${t.imagen_url}" class="stock-tipo-img"/>`:'<div class="stock-tipo-img">✝</div>'}
+        <div class="stock-tipo-info">
+          <div class="stock-tipo-cod">${t.codigo_id}</div>
+          <div class="stock-tipo-nom">${t.nombre}</div>
+          <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+            ${enS.length?`<span class="badge b-stock">${enS.length} en stock</span>`:''}
+            ${enC.length?`<span class="badge b-cons">${enC.length} en consignación</span>`:''}
+            ${enV.length?`<span class="badge b-vend">${enV.length} vendidos</span>`:''}
+          </div>
+        </div>
+      </div>
+      <div class="stock-unidades">
+        ${uTipo.filter(u=>u.estado!=='vendido').map(u=>`
+        <div class="unidad-row">
+          <span class="badge ${u.estado==='stock'?'b-stock':'b-cons'}">${u.estado==='stock'?'Stock':'Consignación'}</span>
+          <span style="font-size:.85rem">${u.tamanio}</span>
+          <span style="font-size:.82rem;color:var(--suave)">${u.tecnica||'—'}</span>
+          ${u.estado==='consignacion'?`<span style="font-size:.82rem;color:var(--suave)">📍 ${u.lugares?.nombre||'—'}</span>`:''}
+          <button class="btn btn-gh" style="padding:4px 10px;font-size:.72rem;margin-left:auto" onclick="eliminarUnidad('${u.id}')">✕ Quitar</button>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function renderStockGrid() {
+  const [{ data:tipos },{ data:unidades }] = await Promise.all([
+    DB.from('tipos_cuadro').select('*').eq('activo',true).order('codigo_id'),
+    DB.from('unidades_cuadro').select('*,lugares(nombre)').eq('activo',true),
+  ]);
+  const busq = FILTRO_STOCK_BUSQ.toLowerCase().trim();
+  const tiposFiltrados = busq
+    ? (tipos||[]).filter(t => t.nombre.toLowerCase().includes(busq) || t.codigo_id.toLowerCase().includes(busq))
+    : (tipos||[]);
+  const el = document.getElementById('stock-grid');
+  if (el) el.innerHTML = renderStockGridContent(tiposFiltrados, unidades||[]);
+}
 async function cargarUnidadesVenta(tipoId) {
-  const wrap = document.getElementById('v-unid-wrap'), sel = document.getElementById('v-unid-id');
-  if (!tipoId) { wrap.style.display='none'; return; }
-  const { data } = await DB.from('unidades_cuadro').select('*,lugares(nombre)').eq('tipo_cuadro_id',tipoId).eq('activo',true).neq('estado','vendido');
-  wrap.style.display='block';
-  sel.innerHTML = '<option value="">Seleccioná unidad</option>'+(data||[]).map(u=>`<option value="${u.id}">${u.tamanio} · ${u.tecnica||'—'} · ${u.estado==='consignacion'?'En '+(u.lugares?.nombre||'—'):'Stock'}</option>`).join('');
+  const wrap = document.getElementById('v-unid-wrap');
+  const sel = document.getElementById('v-unid-id');
+  if (!tipoId) { wrap.style.display = 'none'; return; }
+
+  const canal = document.getElementById('v-canal')?.value || 'presencial';
+  const estadoFiltro = canal === 'consignacion' ? 'consignacion' : 'stock';
+
+  const { data } = await DB.from('unidades_cuadro')
+    .select('*,lugares(nombre)')
+    .eq('tipo_cuadro_id', tipoId)
+    .eq('activo', true)
+    .eq('estado', estadoFiltro);
+
+  wrap.style.display = 'block';
+  if (!data || data.length === 0) {
+    sel.innerHTML = `<option value="">No hay unidades disponibles en ${estadoFiltro}</option>`;
+  } else {
+    sel.innerHTML = '<option value="">Seleccioná unidad</option>' + data.map(u =>
+      `<option value="${u.id}">${u.tamanio} · ${u.tecnica||'—'}${u.estado==='consignacion'?' · En '+(u.lugares?.nombre||'—'):''}</option>`
+    ).join('');
+  }
+}
+
+function cambiarCanalVenta(canal) {
+  document.getElementById('v-lugar-wrap').style.display = canal === 'consignacion' ? 'block' : 'none';
+  // Recargar las unidades si ya hay un tipo seleccionado
+  const tipoId = document.getElementById('v-tipo-id')?.value;
+  if (tipoId) cargarUnidadesVenta(tipoId);
 }
 
 async function guardarCarga() {
@@ -2681,12 +2745,64 @@ async function eliminarUnidad(id) {
 }
 
 // ---- PEDIDOS WEB ----
+let FILTRO_PED = { busqNum:'', busqCli:'', tipo:'', entregado:'', pago:'' };
+
 async function renderPedidos(main) {
   const { data } = await DB.from('pedidos').select('*,tipos_cuadro(nombre)').order('created_at',{ascending:false});
+
   main.innerHTML=`
   <div class="adm-hdr"><h1>Pedidos web</h1></div>
-  <div class="tbl-wrap"><table><thead><tr><th>N° Pedido</th><th>Cliente</th><th>Tipo</th><th>Cuadro</th><th>Total</th><th>Pago</th><th>Estado</th><th>Entregado</th><th>Ref.</th><th>Fecha</th></tr></thead><tbody>
-  ${(data||[]).map(p=>{
+
+  <!-- FILTROS -->
+  <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+    <input type="text" class="fi" placeholder="🔍 N° pedido" value="${FILTRO_PED.busqNum}" oninput="FILTRO_PED.busqNum=this.value;renderPedidosTbl()"/>
+    <input type="text" class="fi" placeholder="🔍 Cliente" value="${FILTRO_PED.busqCli}" oninput="FILTRO_PED.busqCli=this.value;renderPedidosTbl()"/>
+    <select class="fs" onchange="FILTRO_PED.tipo=this.value;renderPedidosTbl()">
+      <option value="">Todos los tipos</option>
+      <option value="stock" ${FILTRO_PED.tipo==='stock'?'selected':''}>Stock</option>
+      <option value="personalizado_archivo" ${FILTRO_PED.tipo==='personalizado_archivo'?'selected':''}>Pers. archivo</option>
+      <option value="personalizado_nuevo" ${FILTRO_PED.tipo==='personalizado_nuevo'?'selected':''}>Pers. nuevo</option>
+    </select>
+    <select class="fs" onchange="FILTRO_PED.pago=this.value;renderPedidosTbl()">
+      <option value="">Cualquier estado de pago</option>
+      <option value="pendiente" ${FILTRO_PED.pago==='pendiente'?'selected':''}>Pendiente</option>
+      <option value="pagado" ${FILTRO_PED.pago==='pagado'?'selected':''}>Pagado</option>
+      <option value="cancelado" ${FILTRO_PED.pago==='cancelado'?'selected':''}>Cancelado</option>
+    </select>
+    <select class="fs" onchange="FILTRO_PED.entregado=this.value;renderPedidosTbl()">
+      <option value="">Cualquier entrega</option>
+      <option value="si" ${FILTRO_PED.entregado==='si'?'selected':''}>Entregado</option>
+      <option value="no" ${FILTRO_PED.entregado==='no'?'selected':''}>No entregado</option>
+    </select>
+  </div>
+
+  <div id="ped-tbl">${renderPedidosTblContent(data||[])}</div>`;
+
+  // Guardar data en window para acceder desde renderPedidosTbl
+  window._PEDIDOS_DATA = data || [];
+}
+
+function renderPedidosTbl() {
+  const data = window._PEDIDOS_DATA || [];
+  const el = document.getElementById('ped-tbl');
+  if (el) el.innerHTML = renderPedidosTblContent(data);
+}
+
+function renderPedidosTblContent(data) {
+  const filtrados = data.filter(p => {
+    if (FILTRO_PED.busqNum && !p.numero_pedido.toLowerCase().includes(FILTRO_PED.busqNum.toLowerCase())) return false;
+    if (FILTRO_PED.busqCli && !(p.cliente_nombre||'').toLowerCase().includes(FILTRO_PED.busqCli.toLowerCase())) return false;
+    if (FILTRO_PED.tipo && p.tipo !== FILTRO_PED.tipo) return false;
+    if (FILTRO_PED.pago && p.estado_pago !== FILTRO_PED.pago) return false;
+    if (FILTRO_PED.entregado === 'si' && !p.entregado) return false;
+    if (FILTRO_PED.entregado === 'no' && p.entregado) return false;
+    return true;
+  });
+
+  if (filtrados.length === 0) return '<div class="tbl-wrap" style="padding:40px;text-align:center;color:var(--suave)">No hay pedidos con esos filtros.</div>';
+
+  return `<div class="tbl-wrap"><table><thead><tr><th>N° Pedido</th><th>Cliente</th><th>Tipo</th><th>Cuadro</th><th>Total</th><th>Pago</th><th>Estado</th><th>Entregado</th><th>Ref.</th><th>Fecha</th></tr></thead><tbody>
+  ${filtrados.map(p=>{
     const estilos = {
       pendiente: 'background:#fff8e1;color:#f57f17;border-color:#f9a825',
       pagado: 'background:#e8f5e9;color:#2e7d32;border-color:#43a047',
@@ -2697,34 +2813,39 @@ async function renderPedidos(main) {
       ? 'background:#e8f5e9;border:1px solid #43a047;color:#2e7d32;font-weight:600'
       : 'background:transparent;border:1px solid var(--lino-osc);color:var(--suave)';
     return `<tr>
-    <td style="font-family:var(--display);font-size:.85rem">${p.numero_pedido}</td>
-    <td>${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
-    <td style="font-size:.82rem">${{stock:'Stock',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
-    <td style="font-size:.85rem">${p.tipos_cuadro?.nombre||'—'}${p.descripcion_personalizado?`<br><span style="font-size:.75rem;color:var(--suave);display:block;max-width:160px">${p.descripcion_personalizado}</span>`:''}${p.tamanio?`<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>`:''}</td>
-    <td>${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
-    <td style="text-transform:capitalize">${p.metodo_pago||'—'}</td>
-    <td>
-      <select onchange="cambiarEstadoPedido('${p.id}',this.value);this.style.cssText='font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;'+(this.value==='pagado'?'background:#e8f5e9;color:#2e7d32;border-color:#43a047':this.value==='cancelado'?'background:#fce4ec;color:#c62828;border-color:#e53935':'background:#fff8e1;color:#f57f17;border-color:#f9a825')"
-        style="font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;${estilo}">
-        ${['pendiente','pagado','cancelado'].map(e=>`<option value="${e}" ${p.estado_pago===e?'selected':''} style="background:white;color:var(--texto)">${e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
-      </select>
-    </td>
-    <td style="text-align:center">
-      <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;transition:var(--tr);${entregadoStyle}" id="lbl-ent-${p.id}">
-        <input type="checkbox" ${p.entregado?'checked':''} onchange="cambiarEntregado('${p.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>
-        ${p.entregado?'✓ Sí':'No'}
-      </label>
-    </td>
-    <td>${p.imagen_referencia_url?`<a href="${p.imagen_referencia_url}" target="_blank"><img src="${p.imagen_referencia_url}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc)"/></a>`:'—'}</td>
-    <td style="font-size:.8rem">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
-  </tr>`;}).join('')}
+      <td style="font-family:var(--display);font-size:.85rem">${p.numero_pedido}</td>
+      <td>${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
+      <td style="font-size:.82rem">${{stock:'Stock',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
+      <td style="font-size:.85rem">${p.tipos_cuadro?.nombre||'—'}${p.descripcion_personalizado?`<br><span style="font-size:.75rem;color:var(--suave);display:block;max-width:160px">${p.descripcion_personalizado}</span>`:''}${p.tamanio?`<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>`:''}</td>
+      <td>${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
+      <td style="text-transform:capitalize">${p.metodo_pago||'—'}</td>
+      <td>
+        <select onchange="cambiarEstadoPedido('${p.id}',this.value);this.style.cssText='font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;'+(this.value==='pagado'?'background:#e8f5e9;color:#2e7d32;border-color:#43a047':this.value==='cancelado'?'background:#fce4ec;color:#c62828;border-color:#e53935':'background:#fff8e1;color:#f57f17;border-color:#f9a825')"
+          style="font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;${estilo}">
+          ${['pendiente','pagado','cancelado'].map(e=>`<option value="${e}" ${p.estado_pago===e?'selected':''} style="background:white;color:var(--texto)">${e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
+        </select>
+      </td>
+      <td style="text-align:center">
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:.75rem;transition:var(--tr);${entregadoStyle}" id="lbl-ent-${p.id}">
+          <input type="checkbox" ${p.entregado?'checked':''} onchange="cambiarEntregado('${p.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>
+          ${p.entregado?'✓ Sí':'No'}
+        </label>
+      </td>
+      <td>${p.imagen_referencia_url?`<a href="${p.imagen_referencia_url}" target="_blank"><img src="${p.imagen_referencia_url}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc)"/></a>`:'—'}</td>
+      <td style="font-size:.8rem">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
+    </tr>`;
+  }).join('')}
   </tbody></table></div>`;
 }
+
+let FILTRO_VTA = { fecha:'', cuadro:'', cliente:'', canal:'', cobrado:'', entregado:'' };
 
 async function renderVentas(main) {
   const { data:ventas } = await DB.from('ventas')
     .select('*, unidades_cuadro(tamanio, tecnica, tipos_cuadro(nombre, codigo_id)), lugares(nombre)')
     .order('created_at',{ascending:false});
+
+  window._VENTAS_DATA = ventas || [];
 
   const V = ventas||[];
   const totalCobrado = V.filter(v=>v.cobrado).reduce((s,v)=>s+(v.precio_venta||0),0);
@@ -2739,11 +2860,66 @@ async function renderVentas(main) {
     <div class="stat"><div class="stat-v" style="color:#f57f17">$${Number(totalPendiente).toLocaleString('es-AR')}</div><div class="stat-l">Pendiente cobrar</div></div>
     <div class="stat"><div class="stat-v">${totalEntregado}/${V.length}</div><div class="stat-l">Entregadas</div></div>
   </div>
-  <div class="tbl-wrap"><table><thead><tr>
+
+  <!-- FILTROS -->
+  <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+    <input type="date" class="fi" value="${FILTRO_VTA.fecha}" oninput="FILTRO_VTA.fecha=this.value;renderVentasTbl()" title="Filtrar por fecha"/>
+    <input type="text" class="fi" placeholder="🔍 Cuadro" value="${FILTRO_VTA.cuadro}" oninput="FILTRO_VTA.cuadro=this.value;renderVentasTbl()"/>
+    <input type="text" class="fi" placeholder="🔍 Cliente" value="${FILTRO_VTA.cliente}" oninput="FILTRO_VTA.cliente=this.value;renderVentasTbl()"/>
+    <select class="fs" onchange="FILTRO_VTA.canal=this.value;renderVentasTbl()">
+      <option value="">Todos los canales</option>
+      <option value="presencial" ${FILTRO_VTA.canal==='presencial'?'selected':''}>Presencial</option>
+      <option value="web" ${FILTRO_VTA.canal==='web'?'selected':''}>Web</option>
+      <option value="consignacion" ${FILTRO_VTA.canal==='consignacion'?'selected':''}>Consignación</option>
+    </select>
+    <select class="fs" onchange="FILTRO_VTA.cobrado=this.value;renderVentasTbl()">
+      <option value="">Cualquier cobro</option>
+      <option value="si" ${FILTRO_VTA.cobrado==='si'?'selected':''}>Cobrado</option>
+      <option value="no" ${FILTRO_VTA.cobrado==='no'?'selected':''}>No cobrado</option>
+    </select>
+    <select class="fs" onchange="FILTRO_VTA.entregado=this.value;renderVentasTbl()">
+      <option value="">Cualquier entrega</option>
+      <option value="si" ${FILTRO_VTA.entregado==='si'?'selected':''}>Entregado</option>
+      <option value="no" ${FILTRO_VTA.entregado==='no'?'selected':''}>No entregado</option>
+    </select>
+  </div>
+
+  <div id="vta-tbl">${renderVentasTblContent(V)}</div>`;
+}
+
+function renderVentasTbl() {
+  const data = window._VENTAS_DATA || [];
+  const el = document.getElementById('vta-tbl');
+  if (el) el.innerHTML = renderVentasTblContent(data);
+}
+
+function renderVentasTblContent(data) {
+  const filtrados = data.filter(v => {
+    if (FILTRO_VTA.fecha) {
+      const f = v.created_at ? v.created_at.slice(0,10) : '';
+      if (f !== FILTRO_VTA.fecha) return false;
+    }
+    if (FILTRO_VTA.cuadro) {
+      const nom = (v.unidades_cuadro?.tipos_cuadro?.nombre || '').toLowerCase();
+      const cod = (v.unidades_cuadro?.tipos_cuadro?.codigo_id || '').toLowerCase();
+      if (!nom.includes(FILTRO_VTA.cuadro.toLowerCase()) && !cod.includes(FILTRO_VTA.cuadro.toLowerCase())) return false;
+    }
+    if (FILTRO_VTA.cliente && !(v.cliente_nombre||'').toLowerCase().includes(FILTRO_VTA.cliente.toLowerCase())) return false;
+    if (FILTRO_VTA.canal && v.canal !== FILTRO_VTA.canal) return false;
+    if (FILTRO_VTA.cobrado === 'si' && !v.cobrado) return false;
+    if (FILTRO_VTA.cobrado === 'no' && v.cobrado) return false;
+    if (FILTRO_VTA.entregado === 'si' && !v.entregado) return false;
+    if (FILTRO_VTA.entregado === 'no' && v.entregado) return false;
+    return true;
+  });
+
+  if (filtrados.length === 0) return '<div class="tbl-wrap" style="padding:40px;text-align:center;color:var(--suave)">Sin ventas con esos filtros</div>';
+
+  return `<div class="tbl-wrap"><table><thead><tr>
     <th>Fecha</th><th>Cuadro</th><th>Tamaño</th><th>Canal</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>Entregado</th>
   </tr></thead><tbody>
-  ${V.length===0?'<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--suave)">Sin ventas aún</td></tr>':V.map(v=>{
-    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'⛪ Consig.'};
+  ${filtrados.map(v=>{
+    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'🏪 Consig.'};
     const cobradoStyle = v.cobrado
       ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #43a047;font-weight:600'
       : 'background:#fff8e1;color:#f57f17;border:1px solid #f9a825';
