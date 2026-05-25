@@ -1513,10 +1513,8 @@ function htmlArchivo() {
       <button class="btn btn-g" onclick="ir('personalizado')" style="font-size:.85rem;padding:16px 32px">🎨 Encargar mi cuadro</button>
     </div>
 
-    <div style="margin-bottom:20px">
-  <input type="text" class="fi" id="busq-archivo" placeholder="Buscar cuadro por nombre o código..." style="max-width:500px" oninput="FILTRO_ARCH_BUSQ=this.value;renderArchivo()"/>
-</div>
-<div class="filtros">
+    <div class="filtros" style="align-items:center">
+  <input type="text" class="fi" id="busq-archivo" placeholder="🔍 Buscar cuadro por nombre o código..." style="flex:1;min-width:200px;max-width:320px;padding:10px 14px" oninput="FILTRO_ARCH_BUSQ=this.value;renderArchivo()"/>
   <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
   <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
   <div style="position:relative">
