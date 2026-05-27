@@ -441,7 +441,7 @@ function htmlDetalle() {
   </div>
   <div class="overlay" id="modal-lugar"><div class="modal">
     <button class="m-close" onclick="cerrarModal('modal-lugar')">✕</button>
-    <div style="text-align:center;font-size:2.5rem;margin-bottom:12px">🏪</div>
+    <div style="text-align:center;font-size:2.5rem;margin-bottom:12px">⛪</div>
     <h3 id="modal-lugar-nom">—</h3>
     <div id="modal-lugar-info" style="margin-bottom:24px"></div>
     <button class="btn btn-gh" onclick="cerrarModal('modal-lugar')" style="width:100%;justify-content:center">Cerrar</button>
@@ -545,7 +545,7 @@ function renderDetalle() {
         <!-- Si hay consignación -->
         ${hayConsig ? `
           <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:16px">
-            <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">🏪 También disponible en:</p>
+            <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">⛪ También disponible en:</p>
             ${Object.values(porLugar).map(({lugar, cantidad}) => `
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--lino-osc)">
                 <div>
@@ -3172,7 +3172,7 @@ function renderVentasTblContent(data) {
     <th>Fecha</th><th>Cuadro</th><th>Tamaño</th><th>Canal</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>Entregado</th>
   </tr></thead><tbody>
   ${filtrados.map(v=>{
-    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'🏪 Consig.'};
+    const canalLabels = {web:'🌐 Web', presencial:'🤝 Presencial', consignacion:'⛪ Consig.'};
     const cobradoStyle = v.cobrado
       ? 'background:#e8f5e9;color:#2e7d32;border:1px solid #43a047;font-weight:600'
       : 'background:#fff8e1;color:#f57f17;border:1px solid #f9a825';
@@ -3430,7 +3430,7 @@ async function renderPrecios(main) {
 
     <!-- CONSIGNACIÓN -->
     <div>
-      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">🏪 Precios consignación</h3>
+      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">⛪ Precios consignación</h3>
       <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Lo que te paga el lugar por cuadro vendido</p>
       ${(pc||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
         <div class="stat-l">${p.tamanio}</div>
