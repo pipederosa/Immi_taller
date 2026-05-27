@@ -168,7 +168,27 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .login-box{background:var(--marfil);border-radius:var(--rm);padding:48px;max-width:420px;width:100%;box-shadow:var(--sombra-f)}
 .login-logo{text-align:center;margin-bottom:32px} .login-logo span{font-family:var(--display);font-size:2rem;font-style:italic;color:var(--oro)}
 .err-box{background:#fce4ec;color:#c62828;padding:12px 16px;border-radius:var(--r);margin-bottom:16px;font-size:.88rem}
-.carrito-flotante{position:fixed;top:88px;right:24px;z-index:900;background:var(--carbon);color:var(--oro-cl);width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--sombra-m);border:none;transition:var(--tr);font-size:1.4rem}
+.carrito-wrap{position:fixed;top:88px;right:24px;z-index:900}
+.carrito-flotante{background:var(--carbon);color:var(--oro-cl);width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--sombra-m);border:none;transition:var(--tr);font-size:1.4rem;position:relative}
+.carrito-flotante:hover{background:#1a1408;transform:scale(1.08);box-shadow:var(--sombra-f)}
+.carrito-badge{position:absolute;top:-4px;right:-4px;background:var(--oro);color:white;font-size:.72rem;font-weight:600;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--marfil);font-family:var(--body)}
+.carrito-preview{position:absolute;top:calc(100% + 12px);right:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-f);min-width:320px;max-width:380px;padding:16px;opacity:0;visibility:hidden;transform:translateY(-8px);transition:all .25s ease;pointer-events:none}
+.carrito-wrap:hover .carrito-preview{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto}
+.carrito-preview::before{content:'';position:absolute;top:-12px;right:0;width:54px;height:12px}
+.cp-empty{text-align:center;padding:24px 12px;color:var(--suave)}
+.cp-empty-ic{font-size:2.5rem;opacity:.3;margin-bottom:8px}
+.cp-item{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--lino-osc)}
+.cp-item:last-of-type{border-bottom:none}
+.cp-item-img{width:48px;height:48px;border-radius:var(--r);object-fit:cover;background:var(--lino);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;opacity:.4}
+.cp-item-info{flex:1;min-width:0}
+.cp-item-nom{font-family:var(--display);font-size:.95rem;line-height:1.2;margin-bottom:2px}
+.cp-item-meta{font-size:.72rem;color:var(--suave)}
+.cp-item-precio{font-family:var(--display);font-size:.9rem;color:var(--oro-osc);white-space:nowrap}
+.cp-tot{display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:8px;border-top:2px solid var(--lino-osc);font-family:var(--body)}
+.cp-tot-l{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--suave)}
+.cp-tot-v{font-family:var(--display);font-size:1.3rem;color:var(--oro-osc)}
+.cp-btn{width:100%;justify-content:center;margin-top:8px}
+@media(max-width:640px){.carrito-wrap{top:auto;bottom:24px;right:16px}.carrito-flotante{width:60px;height:60px}.carrito-preview{display:none}}
 .carrito-flotante:hover{background:#1a1408;transform:scale(1.08);box-shadow:var(--sombra-f)}
 .carrito-badge{position:absolute;top:-4px;right:-4px;background:var(--oro);color:white;font-size:.72rem;font-weight:600;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--marfil);font-family:var(--body)}
 .carrito-item{background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:12px;display:flex;gap:16px;align-items:center}
@@ -397,6 +417,7 @@ function actualizarContadorCarrito() {
     el.textContent = total;
     el.style.display = total > 0 ? 'flex' : 'none';
   }
+  renderCarritoPreview();
 }
 
 function mostrarAvisoCarrito(item) {
@@ -1354,10 +1375,53 @@ function initNavScroll() {
 }
 
 function htmlCarritoFlotante() {
-  return `<button class="carrito-flotante" onclick="ir('carrito')" title="Ver carrito">
-    🛒
-    <span class="carrito-badge" id="carrito-badge" style="display:none">0</span>
-  </button>`;
+  return `<div class="carrito-wrap">
+    <button class="carrito-flotante" onclick="ir('carrito')" title="Ver carrito">
+      🛒
+      <span class="carrito-badge" id="carrito-badge" style="display:none">0</span>
+    </button>
+    <div class="carrito-preview" id="carrito-preview"></div>
+  </div>`;
+}
+
+function renderCarritoPreview() {
+  const el = document.getElementById('carrito-preview');
+  if (!el) return;
+
+  if (CARRITO.length === 0) {
+    el.innerHTML = `<div class="cp-empty">
+      <div class="cp-empty-ic">🛒</div>
+      <p style="font-size:.88rem;margin-bottom:12px">Tu carrito está vacío</p>
+      <button class="btn btn-p" style="font-size:.72rem;padding:8px 16px" onclick="ir('archivo')">Ver cuadros</button>
+    </div>`;
+    return;
+  }
+
+  const items = CARRITO.slice(0, 4);  // Mostrar máx 4 items
+  const masItems = CARRITO.length - items.length;
+  const total = totalCarrito();
+
+  el.innerHTML = `
+    <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--suave);margin-bottom:8px;font-weight:600">Tu carrito (${cantidadTotalCarrito()})</div>
+    ${items.map(item => `
+      <div class="cp-item">
+        <div class="cp-item-img">
+          ${item.imagenUrl ? `<img src="${item.imagenUrl}" alt="${item.tipoNombre}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r)"/>` : '✝'}
+        </div>
+        <div class="cp-item-info">
+          <div class="cp-item-nom">${item.tipoNombre}${item.tipo==='encargo'?' <span class="tag-encargo" style="font-size:.6rem;padding:1px 6px">Encargo</span>':''}</div>
+          <div class="cp-item-meta">${item.tamanio} · x${item.cantidad}</div>
+        </div>
+        <div class="cp-item-precio">$${Number(item.precio * item.cantidad).toLocaleString('es-AR')}</div>
+      </div>
+    `).join('')}
+    ${masItems > 0 ? `<p style="text-align:center;font-size:.78rem;color:var(--suave);padding:6px 0">+ ${masItems} cuadro${masItems!==1?'s':''} más</p>` : ''}
+    <div class="cp-tot">
+      <span class="cp-tot-l">Total</span>
+      <span class="cp-tot-v">$${Number(total).toLocaleString('es-AR')}</span>
+    </div>
+    <button class="btn btn-g cp-btn" onclick="ir('carrito')">Ver carrito →</button>
+  `;
 }
 
 function htmlFooter() {
