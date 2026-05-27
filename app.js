@@ -2565,7 +2565,7 @@ async function renderStock(main) {
 
   <div class="overlay" id="modal-carga"><div class="modal" style="max-width:560px">
     <button class="m-close" onclick="cerrarModal('modal-carga')">✕</button>
-    <h3>📥 Cargar cuadros al stock</h3>
+    <h3>Cargar cuadros al stock</h3>
     <p style="margin-bottom:24px">Registrá cuadros nuevos que terminaste de pintar</p>
     <div class="fg"><label class="fl">Tipo de cuadro *</label>
       <select class="fs" id="c-tipo-id"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
@@ -2593,7 +2593,7 @@ async function renderStock(main) {
   </div></div>
   <div class="overlay" id="modal-venta"><div class="modal" style="max-width:560px">
     <button class="m-close" onclick="cerrarModal('modal-venta')">✕</button>
-    <h3>💰 Registrar venta</h3>
+    <h3>Registrar venta</h3>
     <p style="margin-bottom:24px">Venta presencial o consignación que ya se realizó</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="fg"><label class="fl">Canal *</label>
