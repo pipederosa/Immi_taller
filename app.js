@@ -1482,7 +1482,7 @@ function htmlHome() {
     <div style="text-align:center;margin-top:48px"><button class="btn btn-p" onclick="ir('archivo')">Ver archivo completo</button></div>
   </div></section>
   <section id="precios"><div class="wrap">
-    <div class="sec-hdr"><span class="tag">Inversión</span><h2>Precios de nuestras obras</h2><p>Cada cuadro es pintado a mano con amor y dedicación. Los personalizados se cotizan aparte.</p></div>
+    <div class="sec-hdr"><span class="tag">Inversión</span><h2>Precios de nuestras obras</h2><p>Cada cuadro es pintado a mano con amor y dedicación. Los personalizados se cotizan aparte(todo encargo de un cuadro que se encuentre en el archivo NO es coniderado personalizado).</p></div>
     <div class="precios-grid" id="precios-grid"><div style="grid-column:1/-1;text-align:center;color:var(--suave)">Cargando...</div></div>
   </div></section>
   <section id="lugares"><div class="wrap">
