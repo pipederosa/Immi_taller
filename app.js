@@ -1125,6 +1125,7 @@ function htmlPersoPaso2() {
     <label class="fl">Tamaño deseado</label>
     <select class="fs" id="ps-tam">
       <option value="">Seleccioná</option>
+      <option value="13x18" ${PERSO.tamanio==='13x18'?'selected':''}>13x18 cm</option>
       <option value="15x15" ${PERSO.tamanio==='15x15'?'selected':''}>15x15 cm</option>
       <option value="20x20" ${PERSO.tamanio==='20x20'?'selected':''}>20x20 cm</option>
       <option value="otro" ${PERSO.tamanio==='otro'?'selected':''}>Otro (a coordinar)</option>
@@ -2570,7 +2571,7 @@ async function renderStock(main) {
       <select class="fs" id="c-tipo-id"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option><option value="15x15">15x15</option><option value="20x20">20x20</option><option value="personalizado">Personalizado</option></select></div>
+      <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option><option value="13x18">13x18</option><option value="15x15">15x15</option><option value="20x20">20x20</option><option value="personalizado">Personalizado</option></select></div>
       <div class="fg"><label class="fl">Técnica</label><select class="fs" id="c-tec"><option value="">Sin especif.</option><option value="acrilico">Acrílico</option><option value="oleo">Óleo</option><option value="acuarela">Acuarela</option></select></div>
       <div class="fg"><label class="fl">Cantidad *</label><input class="fi" type="number" id="c-cant" value="1" min="1"/></div>
       <div class="fg"><label class="fl">Destino *</label>
@@ -2989,7 +2990,90 @@ async function renderVentas(main) {
     </select>
   </div>
 
-  <div id="vta-tbl">${renderVentasTblContent(V)}</div>`;
+  <div id="vta-tbl">${renderVentasTblContent(V)}</div>
+
+  <!-- Modal editar venta -->
+  <div class="overlay" id="modal-edit-vta"><div class="modal" style="max-width:520px">
+    <button class="m-close" onclick="cerrarModal('modal-edit-vta')">✕</button>
+    <h3>✏️ Editar venta</h3>
+    <p style="margin-bottom:24px;color:var(--suave)" id="edit-vta-info">—</p>
+    <div class="fg"><label class="fl">Precio de venta ($)</label><input type="number" class="fi" id="edit-vta-precio"/></div>
+    <div class="fg"><label class="fl">Nombre del cliente</label><input class="fi" id="edit-vta-nom"/></div>
+    <div class="fg"><label class="fl">Email del cliente</label><input class="fi" type="email" id="edit-vta-email"/></div>
+    <div class="fg"><label class="fl">Teléfono del cliente</label><input class="fi" type="tel" id="edit-vta-tel"/></div>
+    <div style="display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="edit-vta-cobrado" style="width:16px;height:16px;accent-color:var(--oro)"/> Cobrado</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="edit-vta-entregado" style="width:16px;height:16px;accent-color:var(--oro)"/> Entregado</label>
+    </div>
+    <div style="display:flex;gap:12px;justify-content:space-between">
+      <button class="btn btn-gh" onclick="eliminarVenta()" style="color:#c62828;border-color:#c62828">🗑️ Eliminar venta</button>
+      <div style="display:flex;gap:12px">
+        <button class="btn btn-gh" onclick="cerrarModal('modal-edit-vta')">Cancelar</button>
+        <button class="btn btn-p" onclick="guardarEdicionVenta()">Guardar</button>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+async function editarVenta(id) {
+  const venta = (window._VENTAS_DATA || []).find(v => v.id === id);
+  if (!venta) return;
+  window._VTA_EDIT_ID = id;
+  document.getElementById('edit-vta-info').textContent = `${venta.unidades_cuadro?.tipos_cuadro?.nombre || 'Cuadro'} · ${venta.unidades_cuadro?.tamanio || '—'} · ${venta.canal}`;
+  document.getElementById('edit-vta-precio').value = venta.precio_venta || '';
+  document.getElementById('edit-vta-nom').value = venta.cliente_nombre || '';
+  document.getElementById('edit-vta-email').value = venta.cliente_email || '';
+  document.getElementById('edit-vta-tel').value = venta.cliente_telefono || '';
+  document.getElementById('edit-vta-cobrado').checked = !!venta.cobrado;
+  document.getElementById('edit-vta-entregado').checked = !!venta.entregado;
+  document.getElementById('modal-edit-vta').classList.add('on');
+}
+
+async function guardarEdicionVenta() {
+  const id = window._VTA_EDIT_ID;
+  if (!id) return;
+  const updates = {
+    precio_venta: Number(document.getElementById('edit-vta-precio').value) || null,
+    cliente_nombre: document.getElementById('edit-vta-nom').value.trim() || null,
+    cliente_email: document.getElementById('edit-vta-email').value.trim() || null,
+    cliente_telefono: document.getElementById('edit-vta-tel').value.trim() || null,
+    cobrado: document.getElementById('edit-vta-cobrado').checked,
+    entregado: document.getElementById('edit-vta-entregado').checked,
+  };
+  const { error } = await DB.from('ventas').update(updates).eq('id', id);
+  if (error) { alert('Error: ' + error.message); return; }
+
+  // Si tiene pedido asociado, sincronizar también
+  const venta = (window._VENTAS_DATA || []).find(v => v.id === id);
+  if (venta?.pedido_id) {
+    await DB.from('pedidos').update({
+      estado_pago: updates.cobrado ? 'pagado' : 'pendiente',
+      entregado: updates.entregado,
+      updated_at: new Date(),
+    }).eq('id', venta.pedido_id);
+  }
+
+  cerrarModal('modal-edit-vta');
+  renderVentas(document.getElementById('adm-main'));
+}
+
+async function eliminarVenta() {
+  const id = window._VTA_EDIT_ID;
+  if (!id) return;
+  if (!confirm('¿Eliminar esta venta? Esta acción no se puede deshacer.\n\nSi la venta tiene un cuadro asignado, ese cuadro va a volver al stock.')) return;
+
+  const venta = (window._VENTAS_DATA || []).find(v => v.id === id);
+
+  // Si tenía unidad asignada, restaurarla a stock
+  if (venta?.unidad_id) {
+    await DB.from('unidades_cuadro').update({ estado: 'stock' }).eq('id', venta.unidad_id);
+  }
+
+  // Borrar la venta
+  await DB.from('ventas').delete().eq('id', id);
+
+  cerrarModal('modal-edit-vta');
+  renderVentas(document.getElementById('adm-main'));
 }
 
 function renderVentasTbl() {
@@ -3044,7 +3128,11 @@ function renderVentasTblContent(data) {
         ${v.canal==='consignacion'&&v.lugares?.nombre?`<br><span style="font-size:.75rem;color:var(--suave)">📍 ${v.lugares.nombre}</span>`:''}
       </td>
       <td style="font-size:.85rem">${v.cliente_nombre||'—'}${v.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${v.cliente_telefono}</span>`:''}</td>
-      <td><strong>${v.precio_venta?'$'+Number(v.precio_venta).toLocaleString('es-AR'):'—'}</strong></td>
+      <td>
+        <button class="btn btn-gh" style="padding:4px 10px;font-size:.78rem;font-weight:600" onclick="editarVenta('${v.id}')">
+          ${v.precio_venta?'$'+Number(v.precio_venta).toLocaleString('es-AR'):'—'} <span style="opacity:.5">✏️</span>
+        </button>
+      </td>
       <td style="text-align:center">
         <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);cursor:pointer;font-size:.75rem;${cobradoStyle}">
           <input type="checkbox" ${v.cobrado?'checked':''} onchange="cambiarCobradoVenta('${v.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#2e7d32;margin:0"/>
@@ -3184,14 +3272,55 @@ async function confirmarCobro() {
   const monto = Number(document.getElementById('cob-monto').value);
   if (!monto || monto <= 0) { alert('Ingresá un monto válido.'); return; }
 
+  // Obtener las ventas con sus precios para decidir cuáles marcar como cobradas
+  const { data:ventas } = await DB.from('ventas')
+    .select('id, precio_venta')
+    .in('id', data.ventaIds)
+    .order('created_at', { ascending: true });  // Cobramos primero las más viejas
+
+  // Crear el cobro
   const { data:cobro, error:ce } = await DB.from('cobros_consignacion').insert({
     lugar_id: data.lugarId,
     monto_total: monto,
-    cantidad_cuadros: data.ventaIds.length,
-    detalle: { ventas: data.ventaIds, total_sugerido: data.totalSugerido },
+    cantidad_cuadros: 0,  // Lo actualizamos después con las ventas que pudimos cubrir
+    detalle: { ventas_pendientes: data.ventaIds, monto_pagado: monto, total_sugerido: data.totalSugerido },
   }).select().single();
-  if (ce) { alert('Error: '+ce.message); return; }
-  await DB.from('ventas').update({ cobrado: true, cobro_id: cobro.id }).in('id', data.ventaIds);
+  if (ce) { alert('Error: ' + ce.message); return; }
+
+  // Distribuir el monto entre las ventas, marcando como cobradas las que entran completas
+  let restante = monto;
+  const ventasCobradas = [];
+  for (const v of (ventas || [])) {
+    const precio = Number(v.precio_venta || 0);
+    if (restante >= precio && precio > 0) {
+      ventasCobradas.push(v.id);
+      restante -= precio;
+    } else {
+      // No alcanza para cubrir esta venta entera → queda pendiente
+      break;
+    }
+  }
+
+  // Marcar las ventas que sí entraron como cobradas
+  if (ventasCobradas.length > 0) {
+    await DB.from('ventas')
+      .update({ cobrado: true, cobro_id: cobro.id })
+      .in('id', ventasCobradas);
+  }
+
+  // Actualizar cantidad_cuadros del cobro
+  await DB.from('cobros_consignacion')
+    .update({ cantidad_cuadros: ventasCobradas.length })
+    .eq('id', cobro.id);
+
+  // Mostrar info al usuario sobre el saldo restante
+  const cubierto = monto - restante;
+  if (restante > 0) {
+    alert(`Cobro registrado.\n\nMonto cobrado: $${Number(monto).toLocaleString('es-AR')}\nCubre ${ventasCobradas.length} venta${ventasCobradas.length!==1?'s':''} de ${data.ventaIds.length}.\n\nEl resto queda como saldo pendiente.`);
+  } else if (cubierto < data.totalSugerido) {
+    alert(`Cobro registrado.\n\nCubre ${ventasCobradas.length} venta${ventasCobradas.length!==1?'s':''} de ${data.ventaIds.length}.\n\nQuedan ventas pendientes por cobrar.`);
+  }
+
   cerrarModal('modal-cobro');
   renderCobros(document.getElementById('adm-main'));
 }
