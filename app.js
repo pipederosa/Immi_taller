@@ -276,6 +276,7 @@ async function enviarEmail(asunto, mensaje, ccCliente, datosForm) {
     const formData = new URLSearchParams();
     formData.append('form-name', 'pedido-immi');
     formData.append('_subject', asunto);
+    formData.append('subject', asunto);
     formData.append('message_completo', mensaje);
     // Datos individuales para que Netlify los muestre bien en el dashboard
     if (datosForm) {
@@ -1038,7 +1039,7 @@ function enviarEmailCarrito(pedido, numeroPedido) {
       + `Teléfono: ${CHECKOUT.tel || 'No indicado'}\n\n`
       + `Pronto nos contactaremos con vos para coordinar la entrega.\n\n`
       + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
-    enviarEmail(`🛒 Pedido confirmado - ${numeroPedido}`, mensaje, CHECKOUT.email, {
+    enviarEmail(`🛒 Pedido - ${CHECKOUT.nombre}`, mensaje, CHECKOUT.email, {
       cliente_nombre: CHECKOUT.nombre,
       cliente_email: CHECKOUT.email,
       cliente_telefono: CHECKOUT.tel || '',
@@ -1360,7 +1361,7 @@ function enviarEmailPerso(numeroPedido) {
       + `DESCRIPCIÓN:\n${PERSO.desc || '(sin descripción)'}\n\n`
       + `Imagen de referencia: ${PERSO.imgref || 'Sin imagen adjunta'}\n`;
 
-    enviarEmail(`✨ Nuevo encargo - ${numeroPedido}`, mensajeVendedor, null, {
+    enviarEmail(`✨ Nuevo encargo - ${PERSO.nombre}`, mensajeVendedor, null, {
       cliente_nombre: PERSO.nombre,
       cliente_email: PERSO.email,
       cliente_telefono: PERSO.tel || '',
@@ -2198,7 +2199,7 @@ function enviarEmailPedido(datos) {
         + datosLinea('N° Pedido', datos.numero_pedido)
         + `\nDESCRIPCIÓN DEL CUADRO:\n${datos.descripcion_personalizado}\n\n`
         + `Imagen de referencia: ${datos.imagen_referencia_url || 'Sin imagen adjunta'}\n`;
-      enviarEmail(`✨ Nuevo pedido personalizado - ${datos.numero_pedido}`, mensajeVendedor, null, {
+      enviarEmail(`✨ Nuevo pedido personalizado - ${datos.cliente_nombre}`, mensajeVendedor, null, {
         cliente_nombre: datos.cliente_nombre,
         cliente_email: datos.cliente_email,
         cliente_telefono: datos.cliente_telefono || '',
@@ -2221,7 +2222,7 @@ function enviarEmailPedido(datos) {
         + datosLinea('Teléfono de contacto', datos.cliente_telefono || 'No indicado')
         + `\nPronto nos contactaremos con vos para coordinar la entrega.\n\n`
         + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
-      enviarEmail(`🛒 Pedido confirmado - ${datos.numero_pedido}`, mensaje, datos.cliente_email, {
+      enviarEmail(`🛒 Pedido confirmado - ${datos.cliente_nombre}`, mensaje, datos.cliente_email, {
         cliente_nombre: datos.cliente_nombre,
         cliente_email: datos.cliente_email,
         cliente_telefono: datos.cliente_telefono || '',
