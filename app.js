@@ -2703,7 +2703,7 @@ async function renderStock(main) {
     <h3>Cargar cuadros al stock</h3>
     <p style="margin-bottom:24px">Registrá cuadros nuevos que terminaste de pintar</p>
     <div class="fg"><label class="fl">Tipo de cuadro *</label>
-      <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option></select>
+      <select class="fs" id="c-tipo-id"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option><option value="13x18">13x18</option><option value="15x15">15x15</option><option value="20x20">20x20</option><option value="personalizado">Personalizado</option></select></div>
@@ -2740,7 +2740,7 @@ async function renderStock(main) {
       <div class="fg"><label class="fl">Precio de venta ($)</label><input class="fi" type="number" id="v-precio" placeholder="Vacío para auto"/></div>
     </div>
     <div class="fg"><label class="fl">Tipo de cuadro *</label>
-      <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
+      <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option></select>
     </div>
     <div class="fg" id="v-unid-wrap" style="display:none"><label class="fl">Unidad vendida *</label>
       <select class="fs" id="v-unid-id"><option value="">Seleccioná...</option></select>
