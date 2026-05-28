@@ -224,6 +224,19 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .adm-overlay.on{display:block}
 .adm-main > div:nth-child(3){grid-template-columns:1fr!important;max-width:100%!important}
 #checkout-content > div:nth-child(2),#checkout-content > div:nth-child(3){grid-template-columns:1fr!important;gap:24px!important}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:5000;display:none;align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox.on{display:flex}
+.lightbox-img-wrap{max-width:95vw;max-height:95vh;overflow:auto;cursor:zoom-in;display:flex;align-items:center;justify-content:center}
+.lightbox-img{max-width:100%;max-height:95vh;object-fit:contain;transition:transform .3s ease;user-select:none;-webkit-user-drag:none}
+.lightbox-img.zoom{transform:scale(2);cursor:zoom-out}
+.lightbox-img.zoom-3{transform:scale(3)}
+.lightbox-close{position:fixed;top:24px;right:24px;width:44px;height:44px;background:rgba(255,255,255,.15);border:none;color:white;font-size:1.4rem;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:var(--tr);z-index:5100}
+.lightbox-close:hover{background:rgba(255,255,255,.25);transform:scale(1.05)}
+.lightbox-zoom-controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border-radius:30px;padding:8px;z-index:5100}
+.lightbox-zoom-controls button{background:transparent;border:none;color:white;font-size:1.1rem;font-weight:600;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--tr)}
+.lightbox-zoom-controls button:hover{background:rgba(255,255,255,.2)}
+.btn-lupa{position:absolute;bottom:16px;right:16px;background:rgba(0,0,0,.5);color:white;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;backdrop-filter:blur(8px);transition:var(--tr);z-index:5}
+.btn-lupa:hover{background:rgba(0,0,0,.75);transform:scale(1.08)}
 }
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
 .hero-slide.on{opacity:1}
@@ -446,6 +459,28 @@ function htmlDetalle() {
     <div id="modal-lugar-info" style="margin-bottom:24px"></div>
     <button class="btn btn-gh" onclick="cerrarModal('modal-lugar')" style="width:100%;justify-content:center">Cerrar</button>
   </div></div>
+  <div class="overlay" id="modal-lugar"><div class="modal">
+  <button class="m-close" onclick="cerrarModal('modal-lugar')">✕</button>
+  <div style="text-align:center;font-size:2.5rem;margin-bottom:12px">🏪</div>
+  <h3 id="modal-lugar-nom">—</h3>
+  <div id="modal-lugar-info" style="margin-bottom:24px"></div>
+  <button class="btn btn-gh" onclick="cerrarModal('modal-lugar')" style="width:100%;justify-content:center">Cerrar</button>
+</div></div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="cerrarLightbox(event)">
+  <button class="lightbox-close" onclick="cerrarLightbox()">✕</button>
+  <div class="lightbox-img-wrap" onclick="event.stopPropagation()">
+    <img class="lightbox-img" id="lightbox-img" src="" alt=""/>
+  </div>
+  <div class="lightbox-zoom-controls">
+    <button onclick="zoomLightbox(-1)" title="Alejar">−</button>
+    <button onclick="resetZoomLightbox()" title="Tamaño original">⊙</button>
+    <button onclick="zoomLightbox(1)" title="Acercar">+</button>
+  </div>
+</div>
+
+${htmlFooter()}`;
   ${htmlFooter()}`;
 }
 
@@ -500,8 +535,8 @@ function renderDetalle() {
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start">
       <!-- IMAGEN -->
-      <div style="background:var(--lino);border-radius:var(--rm);aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:var(--sombra-m)">
-        ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover"/>`:'<div style="font-size:5rem;opacity:.2">✝</div>'}
+      <div style="background:var(--lino);border-radius:var(--rm);aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:var(--sombra-m);position:relative">
+        ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="abrirLightbox('${t.imagen_url}')"/><button class="btn-lupa" onclick="abrirLightbox('${t.imagen_url}')" title="Ver más grande">🔍</button>`:'<div style="font-size:5rem;opacity:.2">✝</div>'}
       </div>
 
       <!-- INFO + ACCIONES -->
@@ -625,6 +660,55 @@ function agregarDetalleAlCarrito() {
   const el = document.getElementById('detalle-cant');
   if (el) el.textContent = '1';
 }
+
+let _zoomNivel = 1;
+
+function abrirLightbox(url) {
+  const img = document.getElementById('lightbox-img');
+  if (!img) return;
+  img.src = url;
+  img.classList.remove('zoom', 'zoom-3');
+  _zoomNivel = 1;
+  document.getElementById('lightbox').classList.add('on');
+  document.body.style.overflow = 'hidden';
+
+  // Click en la imagen alterna zoom
+  img.onclick = (e) => {
+    e.stopPropagation();
+    zoomLightbox(1);
+  };
+}
+
+function cerrarLightbox(event) {
+  if (event && event.target.closest('.lightbox-img-wrap, .lightbox-zoom-controls')) return;
+  document.getElementById('lightbox')?.classList.remove('on');
+  document.body.style.overflow = '';
+  _zoomNivel = 1;
+}
+
+function zoomLightbox(delta) {
+  const img = document.getElementById('lightbox-img');
+  if (!img) return;
+  _zoomNivel = Math.max(1, Math.min(3, _zoomNivel + delta));
+  img.classList.remove('zoom', 'zoom-3');
+  if (_zoomNivel === 2) img.classList.add('zoom');
+  else if (_zoomNivel === 3) img.classList.add('zoom-3');
+}
+
+function resetZoomLightbox() {
+  const img = document.getElementById('lightbox-img');
+  if (!img) return;
+  _zoomNivel = 1;
+  img.classList.remove('zoom', 'zoom-3');
+}
+
+// Cerrar con tecla Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const lb = document.getElementById('lightbox');
+    if (lb?.classList.contains('on')) cerrarLightbox();
+  }
+});
 
 async function verLugar(lugarId) {
   if (!lugarId) return;
@@ -1731,7 +1815,7 @@ function renderArchivo() {
     const porLugar = {};
     enC.forEach(u => { const n = u.lugares?.nombre || 'Sin nombre'; porLugar[n] = (porLugar[n]||0) + 1; });
 
-    return `<div class="tipo-card">
+    return `<div class="tipo-card" data-tipo-id="${t.id}" style="cursor:pointer">
       <div class="tipo-img">
         ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}
         ${sinDispo?'<div class="tipo-sin-stock">Sin stock - por Encargo</div>':''}
@@ -1748,10 +1832,21 @@ function renderArchivo() {
       </div>
     </div>`;
   }).join('');
+
+  // Hacer toda la tarjeta clickeable
+  grid.querySelectorAll('.tipo-card[data-tipo-id]').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const id = card.getAttribute('data-tipo-id');
+      ir('detalle?id=' + id);
+    });
+  });
+
   const inp = document.getElementById('busq-archivo');
-if (inp && busq && document.activeElement !== inp) {
-  inp.focus();
-  inp.setSelectionRange(busq.length, busq.length);
+  if (inp && busq && document.activeElement !== inp) {
+    inp.focus();
+    inp.setSelectionRange(busq.length, busq.length);
+  }
 }
 }
 
