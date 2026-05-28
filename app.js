@@ -95,7 +95,7 @@ footer{background:var(--carbon);color:rgba(244,240,232,.5);text-align:center;pad
 .f-btn{padding:8px 20px;border-radius:20px;border:1px solid var(--lino-osc);background:transparent;font-family:var(--body);font-size:.82rem;letter-spacing:.08em;cursor:pointer;transition:var(--tr);text-transform:uppercase;color:var(--suave)}
 .f-btn.on,.f-btn:hover{background:var(--carbon);color:var(--oro-cl);border-color:var(--carbon)}
 .tipo-card{background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);overflow:hidden;transition:var(--tr)}
-.tipo-card:hover{transform:translateY(-4px);box-shadow:var(--sombra-m)}
+.tipo-card:hover{transform:translateY(-4px);box-shadow:var(--sombra-f);border-color:var(--oro)}
 .tipo-img{aspect-ratio:1;overflow:hidden;background:var(--lino);display:flex;align-items:center;justify-content:center;position:relative}
 .tipo-img img{width:100%;height:100%;object-fit:cover;transition:transform .4s} .tipo-card:hover .tipo-img img{transform:scale(1.04)}
 .tipo-sin-stock{position:absolute;top:0;left:0;right:0;background:rgba(198,40,40,.9);color:white;text-align:center;padding:6px;font-size:.75rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase}
@@ -1734,7 +1734,7 @@ function renderArchivo() {
     return `<div class="tipo-card">
       <div class="tipo-img">
         ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}
-        ${sinDispo?'<div class="tipo-sin-stock">Sin stock</div>':''}
+        ${sinDispo?'<div class="tipo-sin-stock">Sin stock - por Encargo</div>':''}
       </div>
       <div class="tipo-info">
         <span class="tipo-cod">${t.codigo_id}</span>
@@ -1744,7 +1744,7 @@ function renderArchivo() {
         ${sinDispo?'<p style="font-size:.82rem;color:var(--suave);margin-top:4px">Disponible bajo encargo</p>':''}
       </div>
       <div class="tipo-acc">
-        <button class="btn btn-p" onclick="ir('detalle?id=${t.id}')">Ver cuadro</button>
+        <button class="btn btn-p" onclick="event.stopPropagation();ir('detalle?id=${t.id}')">Ver cuadro</button>
       </div>
     </div>`;
   }).join('');
@@ -2506,7 +2506,7 @@ async function renderCatalogo(main) {
 function abrirFormTipo(t) {
   const el = document.getElementById('form-tipo-inline'); if(!el) return;
   el.style.display='block';
-  const tams = ['15x15','20x20','personalizado'];
+  const tams = ['13x18','15x15','20x20','personalizado'];
   const selTams = t?.tamanios_disponibles||[];
   el.innerHTML=`<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:32px;margin-bottom:24px">
     <h3 style="font-family:var(--display);font-size:1.6rem;margin-bottom:24px">${t?'Editar tipo de cuadro':'Nuevo tipo de cuadro'}</h3>
@@ -2726,7 +2726,7 @@ function renderStockGridContent(tipos, unidades) {
       );
     }
 
-    return `<div class="stock-tipo-card">
+    return `<div class="tipo-card" onclick="ir('detalle?id=${t.id}')" style="cursor:pointer">
       <div class="stock-tipo-hdr">
         ${t.imagen_url?`<img src="${t.imagen_url}" class="stock-tipo-img"/>`:'<div class="stock-tipo-img">✝</div>'}
         <div class="stock-tipo-info">
@@ -3061,6 +3061,7 @@ async function renderVentas(main) {
     <button class="m-close" onclick="cerrarModal('modal-edit-vta')">✕</button>
     <h3>✏️ Editar venta</h3>
     <p style="margin-bottom:24px;color:var(--suave)" id="edit-vta-info">—</p>
+    <div class="fg"><label class="fl">Fecha de venta</label><input type="datetime-local" class="fi" id="edit-vta-fecha"/></div>
     <div class="fg"><label class="fl">Precio de venta ($)</label><input type="number" class="fi" id="edit-vta-precio"/></div>
     <div class="fg"><label class="fl">Nombre del cliente</label><input class="fi" id="edit-vta-nom"/></div>
     <div class="fg"><label class="fl">Email del cliente</label><input class="fi" type="email" id="edit-vta-email"/></div>
@@ -3084,6 +3085,18 @@ async function editarVenta(id) {
   if (!venta) return;
   window._VTA_EDIT_ID = id;
   document.getElementById('edit-vta-info').textContent = `${venta.unidades_cuadro?.tipos_cuadro?.nombre || 'Cuadro'} · ${venta.unidades_cuadro?.tamanio || '—'} · ${venta.canal}`;
+  // Convertir created_at al formato datetime-local (YYYY-MM-DDTHH:MM)
+  if (venta.created_at) {
+    const d = new Date(venta.created_at);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    document.getElementById('edit-vta-fecha').value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  } else {
+    document.getElementById('edit-vta-fecha').value = '';
+  }
   document.getElementById('edit-vta-precio').value = venta.precio_venta || '';
   document.getElementById('edit-vta-nom').value = venta.cliente_nombre || '';
   document.getElementById('edit-vta-email').value = venta.cliente_email || '';
@@ -3096,6 +3109,7 @@ async function editarVenta(id) {
 async function guardarEdicionVenta() {
   const id = window._VTA_EDIT_ID;
   if (!id) return;
+  const fechaInput = document.getElementById('edit-vta-fecha').value;
   const updates = {
     precio_venta: Number(document.getElementById('edit-vta-precio').value) || null,
     cliente_nombre: document.getElementById('edit-vta-nom').value.trim() || null,
@@ -3104,10 +3118,12 @@ async function guardarEdicionVenta() {
     cobrado: document.getElementById('edit-vta-cobrado').checked,
     entregado: document.getElementById('edit-vta-entregado').checked,
   };
+  if (fechaInput) {
+    updates.created_at = new Date(fechaInput).toISOString();
+  }
   const { error } = await DB.from('ventas').update(updates).eq('id', id);
   if (error) { alert('Error: ' + error.message); return; }
 
-  // Si tiene pedido asociado, sincronizar también
   const venta = (window._VENTAS_DATA || []).find(v => v.id === id);
   if (venta?.pedido_id) {
     await DB.from('pedidos').update({
