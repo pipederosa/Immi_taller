@@ -224,19 +224,6 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .adm-overlay.on{display:block}
 .adm-main > div:nth-child(3){grid-template-columns:1fr!important;max-width:100%!important}
 #checkout-content > div:nth-child(2),#checkout-content > div:nth-child(3){grid-template-columns:1fr!important;gap:24px!important}
-.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:5000;align-items:center;justify-content:center;cursor:zoom-out;visibility:hidden;opacity:0;transition:opacity .25s ease}
-.lightbox.on{visibility:visible;opacity:1;display:flex}
-.lightbox-img-wrap{max-width:95vw;max-height:95vh;overflow:auto;display:flex;align-items:center;justify-content:center}
-.lightbox-img{max-width:95vw;max-height:95vh;object-fit:contain;transition:transform .3s ease;user-select:none;-webkit-user-drag:none;cursor:zoom-in}
-.lightbox-img.zoom{transform:scale(2);cursor:zoom-out}
-.lightbox-img.zoom-3{transform:scale(3)}
-.lightbox-close{position:fixed;top:24px;right:24px;width:44px;height:44px;background:rgba(255,255,255,.15);border:none;color:white;font-size:1.4rem;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:var(--tr);z-index:5100}
-.lightbox-close:hover{background:rgba(255,255,255,.25);transform:scale(1.05)}
-.lightbox-zoom-controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border-radius:30px;padding:8px;z-index:5100}
-.lightbox-zoom-controls button{background:transparent;border:none;color:white;font-size:1.1rem;font-weight:600;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--tr)}
-.lightbox-zoom-controls button:hover{background:rgba(255,255,255,.2)}
-.btn-lupa{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.55);color:white;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;backdrop-filter:blur(8px);transition:var(--tr);z-index:5}
-.btn-lupa:hover{background:rgba(0,0,0,.8);transform:scale(1.08)}
 }
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
 .hero-slide.on{opacity:1}
@@ -461,17 +448,17 @@ function htmlDetalle() {
   </div></div>
 
   <!-- LIGHTBOX -->
-  <div class="lightbox" id="lightbox" onclick="cerrarLightbox(event)">
-    <button class="lightbox-close" onclick="cerrarLightbox()">✕</button>
-    <div class="lightbox-img-wrap" onclick="event.stopPropagation()">
-      <img class="lightbox-img" id="lightbox-img" src="" alt=""/>
-    </div>
-    <div class="lightbox-zoom-controls">
-      <button onclick="zoomLightbox(-1)" title="Alejar">−</button>
-      <button onclick="resetZoomLightbox()" title="Tamaño original">⊙</button>
-      <button onclick="zoomLightbox(1)" title="Acercar">+</button>
-    </div>
+<div id="lightbox" onclick="cerrarLightbox(event)" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out">
+  <button onclick="cerrarLightbox()" style="position:fixed;top:24px;right:24px;width:44px;height:44px;background:rgba(255,255,255,.15);border:none;color:white;font-size:1.4rem;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10000">✕</button>
+  <div onclick="event.stopPropagation()" style="max-width:95vw;max-height:95vh;display:flex;align-items:center;justify-content:center">
+    <img id="lightbox-img" src="" alt="" style="max-width:95vw;max-height:90vh;object-fit:contain;transition:transform .3s ease;cursor:zoom-in;user-select:none"/>
   </div>
+  <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(255,255,255,.15);border-radius:30px;padding:8px;z-index:10000">
+    <button onclick="zoomLightbox(-1)" style="background:transparent;border:none;color:white;font-size:1.3rem;font-weight:600;width:40px;height:40px;border-radius:50%;cursor:pointer">−</button>
+    <button onclick="resetZoomLightbox()" style="background:transparent;border:none;color:white;font-size:1.1rem;width:40px;height:40px;border-radius:50%;cursor:pointer">⊙</button>
+    <button onclick="zoomLightbox(1)" style="background:transparent;border:none;color:white;font-size:1.3rem;font-weight:600;width:40px;height:40px;border-radius:50%;cursor:pointer">+</button>
+  </div>
+</div>
 
   ${htmlFooter()}`;
 }
@@ -658,55 +645,48 @@ let _zoomNivel = 1;
 function abrirLightbox(url) {
   const lb = document.getElementById('lightbox');
   const img = document.getElementById('lightbox-img');
-  if (!lb || !img) return;
+  if (!lb || !img) { console.warn('Lightbox no encontrado'); return; }
   img.src = url;
-  img.classList.remove('zoom', 'zoom-3');
+  img.style.transform = 'scale(1)';
   _zoomNivel = 1;
-  lb.classList.add('on');
+  lb.style.display = 'flex';
   document.body.style.overflow = 'hidden';
-
-  img.onclick = (e) => {
-    e.stopPropagation();
-    zoomLightbox(1);
-  };
+  img.onclick = (e) => { e.stopPropagation(); zoomLightbox(1); };
 }
 
 function cerrarLightbox(event) {
-  if (event && (event.target.closest('.lightbox-img-wrap') || event.target.closest('.lightbox-zoom-controls'))) return;
+  if (event && event.target?.tagName === 'IMG') return;
+  if (event && event.target?.closest('button')) return;
   const lb = document.getElementById('lightbox');
   if (!lb) return;
-  lb.classList.remove('on');
+  lb.style.display = 'none';
   document.body.style.overflow = '';
   _zoomNivel = 1;
-  // Limpiar la imagen para que no quede cargada y aparezca al final del documento
-  setTimeout(() => {
-    const img = document.getElementById('lightbox-img');
-    if (img) img.src = '';
-  }, 300);
 }
 
 function zoomLightbox(delta) {
   const img = document.getElementById('lightbox-img');
   if (!img) return;
   _zoomNivel = Math.max(1, Math.min(3, _zoomNivel + delta));
-  img.classList.remove('zoom', 'zoom-3');
-  if (_zoomNivel === 2) img.classList.add('zoom');
-  else if (_zoomNivel === 3) img.classList.add('zoom-3');
+  img.style.transform = `scale(${_zoomNivel})`;
+  img.style.cursor = _zoomNivel > 1 ? 'zoom-out' : 'zoom-in';
 }
 
 function resetZoomLightbox() {
   const img = document.getElementById('lightbox-img');
   if (!img) return;
   _zoomNivel = 1;
-  img.classList.remove('zoom', 'zoom-3');
+  img.style.transform = 'scale(1)';
+  img.style.cursor = 'zoom-in';
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const lb = document.getElementById('lightbox');
-    if (lb?.classList.contains('on')) cerrarLightbox();
+    if (lb?.style.display === 'flex') cerrarLightbox();
   }
 });
+
 async function verLugar(lugarId) {
   if (!lugarId) return;
   const { data:l } = await DB.from('lugares').select('*').eq('id', lugarId).maybeSingle();
