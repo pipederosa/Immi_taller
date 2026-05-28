@@ -1847,7 +1847,6 @@ function renderArchivo() {
     inp.setSelectionRange(busq.length, busq.length);
   }
 }
-}
 
 // ============================================================
 // COMPRA WEB
