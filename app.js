@@ -2661,7 +2661,7 @@ async function renderStock(main) {
     <div><h1>Stock</h1><p style="color:var(--suave)">Gestión de unidades físicas</p></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       <button class="btn btn-g" onclick="document.getElementById('modal-carga').classList.add('on')">📥 Cargar cuadros</button>
-      <button class="btn btn-p" onclick="document.getElementById('modal-venta').classList.add('on')">💰 Registrar venta</button>
+      <button class="btn btn-p" onclick="abrirModalVenta()">💰 Registrar venta</button>
     </div>
   </div>
   <div class="stats-grid">
@@ -2703,7 +2703,7 @@ async function renderStock(main) {
     <h3>Cargar cuadros al stock</h3>
     <p style="margin-bottom:24px">Registrá cuadros nuevos que terminaste de pintar</p>
     <div class="fg"><label class="fl">Tipo de cuadro *</label>
-      <select class="fs" id="c-tipo-id"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
+      <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option></select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option><option value="13x18">13x18</option><option value="15x15">15x15</option><option value="20x20">20x20</option><option value="personalizado">Personalizado</option></select></div>
@@ -2911,11 +2911,34 @@ async function cargarUnidadesVenta(tipoId) {
   }
 }
 
-function cambiarCanalVenta(canal) {
+async function cambiarCanalVenta(canal) {
   document.getElementById('v-lugar-wrap').style.display = canal === 'consignacion' ? 'block' : 'none';
-  // Recargar las unidades si ya hay un tipo seleccionado
-  const tipoId = document.getElementById('v-tipo-id')?.value;
-  if (tipoId) cargarUnidadesVenta(tipoId);
+
+  // Filtrar tipos de cuadro según el canal
+  const estadoFiltro = canal === 'consignacion' ? 'consignacion' : 'stock';
+  const { data:unidades } = await DB.from('unidades_cuadro')
+    .select('tipo_cuadro_id')
+    .eq('activo', true)
+    .eq('estado', estadoFiltro);
+
+  const tiposConUnidades = [...new Set((unidades||[]).map(u => u.tipo_cuadro_id))];
+  const tiposFiltrados = (TIPOS_CACHE || []).filter(t => tiposConUnidades.includes(t.id));
+
+  const selTipo = document.getElementById('v-tipo-id');
+  if (selTipo) {
+    selTipo.innerHTML = '<option value="">Seleccioná...</option>' +
+      tiposFiltrados.map(t => `<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('');
+  }
+
+  // Limpiar el select de unidades porque cambió el canal
+  const wrap = document.getElementById('v-unid-wrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+function abrirModalVenta() {
+  document.getElementById('modal-venta').classList.add('on');
+  // Al abrir, cargar los tipos según el canal default (presencial)
+  cambiarCanalVenta('presencial');
 }
 
 async function guardarCarga() {
