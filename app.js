@@ -2914,20 +2914,36 @@ async function cargarUnidadesVenta(tipoId) {
 async function cambiarCanalVenta(canal) {
   document.getElementById('v-lugar-wrap').style.display = canal === 'consignacion' ? 'block' : 'none';
 
-  // Filtrar tipos de cuadro según el canal
   const estadoFiltro = canal === 'consignacion' ? 'consignacion' : 'stock';
-  const { data:unidades } = await DB.from('unidades_cuadro')
-    .select('tipo_cuadro_id')
+
+  // Traer las unidades con su tipo_cuadro (join)
+  const { data:unidades, error } = await DB.from('unidades_cuadro')
+    .select('tipo_cuadro_id, tipos_cuadro(id, codigo_id, nombre)')
     .eq('activo', true)
     .eq('estado', estadoFiltro);
 
-  const tiposConUnidades = [...new Set((unidades||[]).map(u => u.tipo_cuadro_id))];
-  const tiposFiltrados = (TIPOS_CACHE || []).filter(t => tiposConUnidades.includes(t.id));
+  if (error) {
+    console.error('Error filtrando tipos:', error);
+    return;
+  }
+
+  // Dedup por tipo_cuadro_id
+  const tiposMap = {};
+  (unidades || []).forEach(u => {
+    if (u.tipos_cuadro && !tiposMap[u.tipos_cuadro.id]) {
+      tiposMap[u.tipos_cuadro.id] = u.tipos_cuadro;
+    }
+  });
+  const tiposFiltrados = Object.values(tiposMap).sort((a, b) => (a.codigo_id || '').localeCompare(b.codigo_id || ''));
 
   const selTipo = document.getElementById('v-tipo-id');
   if (selTipo) {
-    selTipo.innerHTML = '<option value="">Seleccioná...</option>' +
-      tiposFiltrados.map(t => `<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('');
+    if (tiposFiltrados.length === 0) {
+      selTipo.innerHTML = `<option value="">No hay cuadros en ${canal === 'consignacion' ? 'consignación' : 'stock'}</option>`;
+    } else {
+      selTipo.innerHTML = '<option value="">Seleccioná...</option>' +
+        tiposFiltrados.map(t => `<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('');
+    }
   }
 
   // Limpiar el select de unidades porque cambió el canal
