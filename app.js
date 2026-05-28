@@ -3250,7 +3250,7 @@ async function guardarEdicionVenta() {
 async function eliminarVenta() {
   const id = window._VTA_EDIT_ID;
   if (!id) return;
-  if (!confirm('¿Eliminar esta venta? Esta acción no se puede deshacer.\n\nSi la venta tiene un cuadro asignado, ese cuadro va a volver al stock.')) return;
+  if (!confirm('¿Eliminar esta venta? Esta acción no se puede deshacer.\n\nSi la venta tiene un cuadro asignado, ese cuadro va a volver al stock.\nSi la venta está vinculada a un pedido web, el pedido pasará a "cancelado".')) return;
 
   const venta = (window._VENTAS_DATA || []).find(v => v.id === id);
 
@@ -3259,13 +3259,20 @@ async function eliminarVenta() {
     await DB.from('unidades_cuadro').update({ estado: 'stock' }).eq('id', venta.unidad_id);
   }
 
+  // Si estaba vinculada a un pedido web, marcar el pedido como cancelado (sin borrarlo)
+  if (venta?.pedido_id) {
+    await DB.from('pedidos').update({
+      estado_pago: 'cancelado',
+      updated_at: new Date(),
+    }).eq('id', venta.pedido_id);
+  }
+
   // Borrar la venta
   await DB.from('ventas').delete().eq('id', id);
 
   cerrarModal('modal-edit-vta');
   renderVentas(document.getElementById('adm-main'));
 }
-
 function renderVentasTbl() {
   const data = window._VENTAS_DATA || [];
   const el = document.getElementById('vta-tbl');
