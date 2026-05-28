@@ -481,7 +481,6 @@ function htmlDetalle() {
 </div>
 
 ${htmlFooter()}`;
-  ${htmlFooter()}`;
 }
 
 async function cargarDetalle() {
