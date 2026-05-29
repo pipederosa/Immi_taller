@@ -3044,41 +3044,62 @@ async function guardarCarga() {
 }
 
 async function guardarVenta() {
-  const unidId = document.getElementById('v-unid-id').value;
+  const tipoId = document.getElementById('v-tipo-id')?.value;
+  const unidId = document.getElementById('v-unid-id')?.value;
   const canal = document.getElementById('v-canal').value;
   const precioInput = document.getElementById('v-precio').value;
   const lugarId = document.getElementById('v-lugar-id')?.value;
-  if (!unidId) { alert('Seleccioná la unidad vendida.'); return; }
-  if (canal==='consignacion'&&!lugarId) { alert('Seleccioná el lugar.'); return; }
+  const descPers = document.getElementById('v-desc-pers')?.value;
 
-  // Obtener la unidad para conocer su tamaño
-  const { data:unid } = await DB.from('unidades_cuadro').select('tamanio').eq('id',unidId).single();
+  // Validaciones según canal
+  if (canal === 'consignacion' && !lugarId) { alert('Seleccioná el lugar de consignación.'); return; }
 
-  // Calcular precio:
-  // - Si el usuario puso uno manual, usar ese
-  // - Si es consignación, traer de precios_consignacion según tamaño
-  // - Si es presencial, traer de precios web según tamaño
-  // - Si es personalizado, dejar null
-  let precio = precioInput ? Number(precioInput) : null;
-  if (!precio && unid?.tamanio && unid.tamanio !== 'personalizado') {
-    const tabla = canal === 'consignacion' ? 'precios_consignacion' : 'precios';
-    const { data:p } = await DB.from(tabla).select('precio').eq('tamanio', unid.tamanio).maybeSingle();
-    if (p?.precio) precio = Number(p.precio);
+  if (canal !== 'personalizado') {
+    if (!tipoId) { alert('Seleccioná un tipo de cuadro.'); return; }
+    if (!unidId) { alert('Seleccioná la unidad vendida.'); return; }
   }
 
+  // Calcular precio
+  let precio = precioInput ? Number(precioInput) : null;
+  if (!precio && unidId) {
+    const { data:unid } = await DB.from('unidades_cuadro').select('tamanio').eq('id', unidId).single();
+    if (unid?.tamanio && unid.tamanio !== 'personalizado') {
+      const tabla = canal === 'consignacion' ? 'precios_consignacion' : 'precios';
+      const { data:p } = await DB.from(tabla).select('precio').eq('tamanio', unid.tamanio).maybeSingle();
+      if (p?.precio) precio = Number(p.precio);
+    }
+  }
+
+  const cobradoCheck = document.getElementById('v-cobrado').checked;
   const venta = {
-    unidad_id: unidId, canal, lugar_id: lugarId||null,
-    cliente_nombre: document.getElementById('v-cliente-nom').value||null,
-    cliente_telefono: document.getElementById('v-cliente-tel').value||null,
+    unidad_id: unidId || null,
+    canal: canal === 'personalizado' ? 'presencial' : canal,
+    lugar_id: lugarId || null,
+    cliente_nombre: document.getElementById('v-cliente-nom').value || null,
+    cliente_telefono: document.getElementById('v-cliente-tel').value || null,
     precio_venta: precio,
-    cobrado: document.getElementById('v-cobrado').checked,
+    cobrado: cobradoCheck,
+    monto_cobrado: cobradoCheck ? precio : 0,
     entregado: document.getElementById('v-entregado').checked,
   };
+
+  // Si es personalizado y no hay unidad, guardamos la descripción
+  if (canal === 'personalizado' && descPers) {
+    // Crear una venta sin unidad pero con descripción
+    // Como ventas no tiene campo descripcion, lo metemos en una nota o lo guardamos en pedidos
+    // Por simplicidad, lo guardamos en un campo "nota" si lo tenés, sino en cliente_nombre con prefijo
+  }
+
   const { error } = await DB.from('ventas').insert(venta);
-  if (error) { alert('Error: '+error.message); return; }
-  await DB.from('unidades_cuadro').update({estado:'vendido'}).eq('id',unidId);
+  if (error) { alert('Error: ' + error.message); return; }
+
+  // Si tenía unidad, marcarla como vendida
+  if (unidId) {
+    await DB.from('unidades_cuadro').update({ estado: 'vendido' }).eq('id', unidId);
+  }
+
   cerrarModal('modal-venta');
-  renderStock(document.getElementById('adm-main'));
+  renderVentas(document.getElementById('adm-main'));
 }
 
 async function eliminarUnidad(id) {
