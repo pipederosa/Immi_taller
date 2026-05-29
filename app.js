@@ -2596,11 +2596,11 @@ async function renderKPIs(main) {
 
 function abrirCustomSelect(id) {
   // Cerrar otros abiertos
-  document.querySelectorAll('.custom-select-dropdown.on').forEach(d => {
-    if (d.id !== id + '-drop') d.classList.remove('on');
+  document.querySelectorAll('[id$="-drop"]').forEach(d => {
+    if (d.id !== id + '-drop' && d.style.display === 'block') d.style.display = 'none';
   });
   const d = document.getElementById(id + '-drop');
-  d?.classList.toggle('on');
+  if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
 }
 
 function elegirCustomSelect(id, valor, nombre, codigo, imagenUrl, callback) {
@@ -2608,25 +2608,29 @@ function elegirCustomSelect(id, valor, nombre, codigo, imagenUrl, callback) {
   const hidden = document.getElementById(id);
   if (hidden) hidden.value = valor;
   if (btn) {
-    btn.innerHTML = imagenUrl
-      ? `<img src="${imagenUrl}"/><span><strong>${codigo || ''}</strong> · ${nombre}</span>`
-      : `<div class="custom-select-opt-ph">✝</div><span><strong>${codigo || ''}</strong> · ${nombre}</span>`;
+    const imgHtml = imagenUrl
+      ? `<img src="${imagenUrl}" style="width:32px;height:32px;min-width:32px;border-radius:6px;object-fit:cover;flex-shrink:0"/>`
+      : '<div style="width:32px;height:32px;min-width:32px;border-radius:6px;background:var(--lino);display:flex;align-items:center;justify-content:center;opacity:.4;flex-shrink:0;font-size:1rem">✝</div>';
+    btn.innerHTML = `${imgHtml}<span style="flex:1">${codigo ? `<strong>${codigo}</strong> · ` : ''}${nombre}</span><span style="color:var(--suave)">▾</span>`;
   }
-  document.getElementById(id + '-drop')?.classList.remove('on');
+  document.getElementById(id + '-drop').style.display = 'none';
   if (callback) callback(valor);
 }
 
 function htmlCustomSelectCuadros(id, tipos, onChangeCb) {
-  return `<div class="custom-select">
-    <button type="button" class="custom-select-btn" id="${id}-btn" onclick="abrirCustomSelect('${id}')">
-      <span style="color:var(--suave)">Seleccioná...</span>
+  return `<div class="custom-select" style="position:relative;width:100%">
+    <button type="button" id="${id}-btn" onclick="abrirCustomSelect('${id}')" style="width:100%;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--r);padding:10px 16px;text-align:left;cursor:pointer;font-family:var(--body);font-size:.95rem;display:flex;align-items:center;gap:10px;color:var(--texto);transition:var(--tr)">
+      <span style="color:var(--suave);flex:1">Seleccioná...</span>
+      <span style="color:var(--suave)">▾</span>
     </button>
     <input type="hidden" id="${id}" value=""/>
-    <div class="custom-select-dropdown" id="${id}-drop">
+    <div id="${id}-drop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--r);box-shadow:var(--sombra-m);max-height:340px;overflow-y:auto;z-index:1000">
       ${(tipos||[]).map(t => `
-        <div class="custom-select-opt" onclick="elegirCustomSelect('${id}','${t.id}','${(t.nombre||'').replace(/'/g,"\\'")}','${t.codigo_id||''}','${t.imagen_url||''}',${onChangeCb})">
-          ${t.imagen_url ? `<img src="${t.imagen_url}"/>` : '<div class="custom-select-opt-ph">✝</div>'}
-          <div><strong>${t.codigo_id||''}</strong> · ${t.nombre}</div>
+        <div onclick="elegirCustomSelect('${id}','${t.id}','${(t.nombre||'').replace(/'/g,"\\'")}','${t.codigo_id||''}','${t.imagen_url||''}',${onChangeCb})" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:var(--tr);font-size:.9rem;border-bottom:1px solid var(--lino)" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
+          ${t.imagen_url
+            ? `<img src="${t.imagen_url}" style="width:36px;height:36px;min-width:36px;border-radius:6px;object-fit:cover;background:var(--lino);flex-shrink:0"/>`
+            : '<div style="width:36px;height:36px;min-width:36px;border-radius:6px;background:var(--lino);display:flex;align-items:center;justify-content:center;opacity:.4;flex-shrink:0;font-size:1.1rem">✝</div>'}
+          <div style="flex:1;min-width:0"><strong>${t.codigo_id||''}</strong> · ${t.nombre}</div>
         </div>
       `).join('')}
     </div>
@@ -3807,6 +3811,13 @@ async function guardarConfig(claves) {
   await cargarConfig();
 }
 
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.custom-select')) {
+    document.querySelectorAll('[id$="-drop"]').forEach(d => {
+      d.style.display = 'none';
+    });
+  }
+});
 // ============================================================
 // ARRANCAR
 // ============================================================
