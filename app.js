@@ -2660,10 +2660,7 @@ async function renderStock(main) {
   main.innerHTML=`
   <div class="adm-hdr">
     <div><h1>Stock</h1><p style="color:var(--suave)">Gestión de unidades físicas</p></div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <button class="btn btn-g" onclick="document.getElementById('modal-carga').classList.add('on')">📥 Cargar cuadros</button>
-      <button class="btn btn-p" onclick="abrirModalVenta()">💰 Registrar venta</button>
-    </div>
+    <button class="btn btn-g" onclick="document.getElementById('modal-carga').classList.add('on')">📥 Cargar cuadros</button>
   </div>
   <div class="stats-grid">
     <div class="stat"><div class="stat-v">${totalStock}</div><div class="stat-l">En stock</div></div>
@@ -2727,43 +2724,7 @@ async function renderStock(main) {
       <button class="btn btn-gh" onclick="cerrarModal('modal-carga')">Cancelar</button>
     </div>
   </div></div>
-  <div class="overlay" id="modal-venta"><div class="modal" style="max-width:560px">
-    <button class="m-close" onclick="cerrarModal('modal-venta')">✕</button>
-    <h3>Registrar venta</h3>
-    <p style="margin-bottom:24px">Venta presencial o consignación que ya se realizó</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="fg"><label class="fl">Canal *</label>
-        <select class="fs" id="v-canal" onchange="cambiarCanalVenta(this.value)">
-          <option value="presencial">Presencial</option>
-          <option value="consignacion">Consignación</option>
-        </select>
-      </div>
-      <div class="fg"><label class="fl">Precio de venta ($)</label><input class="fi" type="number" id="v-precio" placeholder="Vacío para auto"/></div>
-    </div>
-    <div class="fg"><label class="fl">Tipo de cuadro *</label>
-      <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option></select>
-    </div>
-    <div class="fg" id="v-unid-wrap" style="display:none"><label class="fl">Unidad vendida *</label>
-      <select class="fs" id="v-unid-id"><option value="">Seleccioná...</option></select>
-    </div>
-    <div id="v-lugar-wrap" style="display:none">
-      <div class="fg"><label class="fl">Lugar de consignación</label>
-        <select class="fs" id="v-lugar-id"><option value="">Seleccioná...</option>${(lugares||[]).map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')}</select>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="fg"><label class="fl">Nombre cliente</label><input class="fi" id="v-cliente-nom"/></div>
-      <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="v-cliente-tel"/></div>
-    </div>
-    <div style="display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="v-cobrado" style="width:16px;height:16px;accent-color:var(--oro)"/> Cobrado</label>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="v-entregado" checked style="width:16px;height:16px;accent-color:var(--oro)"/> Entregado</label>
-    </div>
-    <div style="display:flex;gap:12px">
-      <button class="btn btn-p" onclick="guardarVenta()">Registrar venta</button>
-      <button class="btn btn-gh" onclick="cerrarModal('modal-venta')">Cancelar</button>
-    </div>
-  </div></div>`;
+  `;
 
   // Mantener foco en buscador después de re-render
   setTimeout(() => {
@@ -3122,9 +3083,12 @@ function renderPedidosTblContent(data) {
 let FILTRO_VTA = { fecha:'', cuadro:'', cliente:'', canal:'', cobrado:'', entregado:'' };
 
 async function renderVentas(main) {
-  const { data:ventas } = await DB.from('ventas')
-    .select('*, unidades_cuadro(tamanio, tecnica, tipos_cuadro(nombre, codigo_id)), lugares(nombre)')
-    .order('created_at',{ascending:false});
+  const [{ data:ventas },{ data:lugares }] = await Promise.all([
+    DB.from('ventas')
+      .select('*, unidades_cuadro(tamanio, tecnica, tipos_cuadro(nombre, codigo_id, imagen_url)), lugares(nombre)')
+      .order('created_at',{ascending:false}),
+    DB.from('lugares').select('*').eq('activo',true),
+  ]);
 
   window._VENTAS_DATA = ventas || [];
 
@@ -3134,7 +3098,10 @@ async function renderVentas(main) {
   const totalEntregado = V.filter(v=>v.entregado).length;
 
   main.innerHTML=`
-  <div class="adm-hdr"><h1>Todas las ventas</h1><p style="color:var(--suave)">Historial completo (web, presencial y consignación)</p></div>
+  <div class="adm-hdr">
+    <div><h1>Todas las ventas</h1><p style="color:var(--suave)">Historial completo (web, presencial y consignación)</p></div>
+    <button class="btn btn-p" onclick="abrirModalVenta()">💰 Registrar venta</button>
+  </div>
   <div class="stats-grid">
     <div class="stat"><div class="stat-v">${V.length}</div><div class="stat-l">Ventas totales</div></div>
     <div class="stat"><div class="stat-v" style="color:#2e7d32">$${Number(totalCobrado).toLocaleString('es-AR')}</div><div class="stat-l">Cobrado</div></div>
@@ -3145,8 +3112,8 @@ async function renderVentas(main) {
   <!-- FILTROS -->
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
     <input type="date" class="fi" value="${FILTRO_VTA.fecha}" oninput="FILTRO_VTA.fecha=this.value;renderVentasTbl()" title="Filtrar por fecha"/>
-    <input type="text" class="fi" placeholder=" Cuadro" value="${FILTRO_VTA.cuadro}" oninput="FILTRO_VTA.cuadro=this.value;renderVentasTbl()"/>
-    <input type="text" class="fi" placeholder=" Cliente" value="${FILTRO_VTA.cliente}" oninput="FILTRO_VTA.cliente=this.value;renderVentasTbl()"/>
+    <input type="text" class="fi" placeholder="Cuadro" value="${FILTRO_VTA.cuadro}" oninput="FILTRO_VTA.cuadro=this.value;renderVentasTbl()"/>
+    <input type="text" class="fi" placeholder="Cliente" value="${FILTRO_VTA.cliente}" oninput="FILTRO_VTA.cliente=this.value;renderVentasTbl()"/>
     <select class="fs" onchange="FILTRO_VTA.canal=this.value;renderVentasTbl()">
       <option value="">Todos los canales</option>
       <option value="presencial" ${FILTRO_VTA.canal==='presencial'?'selected':''}>Presencial</option>
@@ -3187,6 +3154,49 @@ async function renderVentas(main) {
         <button class="btn btn-gh" onclick="cerrarModal('modal-edit-vta')">Cancelar</button>
         <button class="btn btn-p" onclick="guardarEdicionVenta()">Guardar</button>
       </div>
+    </div>
+  </div></div>
+
+  <!-- Modal Registrar venta -->
+  <div class="overlay" id="modal-venta"><div class="modal" style="max-width:560px">
+    <button class="m-close" onclick="cerrarModal('modal-venta')">✕</button>
+    <h3>Registrar venta</h3>
+    <p style="margin-bottom:24px">Venta presencial o consignación que ya se realizó</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Canal *</label>
+        <select class="fs" id="v-canal" onchange="cambiarCanalVenta(this.value)">
+          <option value="presencial">Presencial</option>
+          <option value="consignacion">Consignación</option>
+          <option value="personalizado">Personalizado</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Precio de venta ($)</label><input class="fi" type="number" id="v-precio" placeholder="Vacío para auto"/></div>
+    </div>
+    <div class="fg" id="v-tipo-wrap"><label class="fl" id="v-tipo-label">Tipo de cuadro *</label>
+      <select class="fs" id="v-tipo-id" onchange="cargarUnidadesVenta(this.value)"><option value="">Seleccioná...</option></select>
+    </div>
+    <div class="fg" id="v-unid-wrap" style="display:none"><label class="fl">Unidad vendida *</label>
+      <select class="fs" id="v-unid-id"><option value="">Seleccioná...</option></select>
+    </div>
+    <div id="v-lugar-wrap" style="display:none">
+      <div class="fg"><label class="fl">Lugar de consignación</label>
+        <select class="fs" id="v-lugar-id"><option value="">Seleccioná...</option>${(lugares||[]).map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="fg" id="v-desc-wrap" style="display:none"><label class="fl">Descripción del cuadro (personalizado)</label>
+      <textarea class="ft" id="v-desc-pers" style="min-height:80px" placeholder="Descripción del cuadro personalizado..."></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Nombre cliente</label><input class="fi" id="v-cliente-nom"/></div>
+      <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="v-cliente-tel"/></div>
+    </div>
+    <div style="display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="v-cobrado" style="width:16px;height:16px;accent-color:var(--oro)"/> Cobrado</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="v-entregado" checked style="width:16px;height:16px;accent-color:var(--oro)"/> Entregado</label>
+    </div>
+    <div style="display:flex;gap:12px">
+      <button class="btn btn-p" onclick="guardarVenta()">Registrar venta</button>
+      <button class="btn btn-gh" onclick="cerrarModal('modal-venta')">Cancelar</button>
     </div>
   </div></div>`;
 }
