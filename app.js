@@ -3410,21 +3410,31 @@ async function renderCobros(main) {
   ${(lugares||[]).map(l=>{
     const vs = ventas?.filter(v=>v.lugar_id===l.id)||[];
     if (vs.length===0) return `<div class="cobro-card" style="opacity:.5"><div class="cobro-lugar">${l.nombre}</div><p style="font-size:.88rem">Sin ventas pendientes</p></div>`;
-    const total = vs.reduce((s,v)=>s+(v.precio_venta||0),0);
+    // Pendiente real = precio - monto_cobrado
+    const totalPend = vs.reduce((s,v)=> s + Math.max(0, Number(v.precio_venta||0) - Number(v.monto_cobrado||0)), 0);
     return `<div class="cobro-card">
-      <div class="cobro-lugar">⛪ ${l.nombre}</div>
-      <div class="cobro-monto">$${Number(total).toLocaleString('es-AR')}</div>
+      <div class="cobro-lugar">🏪 ${l.nombre}</div>
+      <div class="cobro-monto">$${Number(totalPend).toLocaleString('es-AR')}</div>
       <div style="margin:12px 0">
-        ${vs.map(v=>`<div class="cobro-item">
-          <span>${v.unidades_cuadro?.tipos_cuadro?.nombre||'Cuadro'} (${v.unidades_cuadro?.tamanio||'—'})</span>
-          <span>${v.precio_venta?'$'+Number(v.precio_venta).toLocaleString('es-AR'):'A definir'}</span>
-        </div>`).join('')}
+        ${vs.map(v=>{
+          const precio = Number(v.precio_venta||0);
+          const cobrado = Number(v.monto_cobrado||0);
+          const pendiente = Math.max(0, precio - cobrado);
+          return `<div class="cobro-item">
+            <span>${v.unidades_cuadro?.tipos_cuadro?.nombre||'Cuadro'} (${v.unidades_cuadro?.tamanio||'—'})</span>
+            <span>
+              ${cobrado > 0 ? `<span style="color:var(--suave);font-size:.78rem">Cobrado: $${Number(cobrado).toLocaleString('es-AR')} de </span>` : ''}
+              ${precio ? '$'+Number(precio).toLocaleString('es-AR') : 'A definir'}
+              ${cobrado > 0 ? `<br><strong style="color:#f57f17">Pendiente: $${Number(pendiente).toLocaleString('es-AR')}</strong>` : ''}
+            </span>
+          </div>`;
+        }).join('')}
       </div>
-      <button class="btn btn-green" onclick="registrarCobro('${l.id}','${(l.nombre||'').replace(/'/g,'')}',${total},${JSON.stringify(vs.map(v=>v.id)).replace(/"/g,'&quot;')})">✓ Marcar como cobrado</button>
+      <button class="btn btn-g" onclick="registrarCobro('${l.id}','${(l.nombre||'').replace(/'/g,'')}',${totalPend},${JSON.stringify(vs.map(v=>v.id)).replace(/"/g,'&quot;')})">✓ Registrar cobro</button>
     </div>`;
   }).join('')}
   <h3 style="font-family:var(--display);font-size:1.6rem;margin:32px 0 16px">Historial de cobros</h3>
-  <div class="tbl-wrap"><table><thead><tr><th>Lugar</th><th>Cuadros</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>
+  <div class="tbl-wrap"><table><thead><tr><th>Lugar</th><th>Cuadros completos</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>
   ${(historial||[]).map(c=>`<tr>
     <td>${c.lugares?.nombre||'—'}</td>
     <td>${c.cantidad_cuadros||'—'}</td>
@@ -3439,13 +3449,13 @@ async function renderCobros(main) {
     <h3>💰 Registrar cobro</h3>
     <p>Estás cobrando de <strong id="cob-lugar-nom"></strong>.</p>
     <div style="background:var(--lino);border-radius:var(--rm);padding:16px;margin-bottom:24px;font-size:.9rem">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--suave)">Total sugerido:</span><strong id="cob-total-sug">—</strong></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--suave)">Cuadros incluidos:</span><strong id="cob-cant">—</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--suave)">Total pendiente:</span><strong id="cob-total-sug">—</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--suave)">Ventas pendientes:</span><strong id="cob-cant">—</strong></div>
     </div>
     <div class="fg">
       <label class="fl">Monto cobrado ($) *</label>
       <input type="number" class="fi" id="cob-monto" style="font-size:1.2rem;font-family:var(--display);text-align:center"/>
-      <p style="font-size:.78rem;color:var(--suave);margin-top:6px">Podés modificar el monto si cobraste algo distinto al total sugerido (descuentos, comisiones, etc.)</p>
+      <p style="font-size:.78rem;color:var(--suave);margin-top:6px">El monto se aplica de la venta más vieja a la más nueva. Si no alcanza para cubrir una venta completa, queda como cobro parcial.</p>
     </div>
     <div style="display:flex;gap:12px">
       <button class="btn btn-green" onclick="confirmarCobro()">✓ Confirmar cobro</button>
@@ -3470,54 +3480,58 @@ async function confirmarCobro() {
   const monto = Number(document.getElementById('cob-monto').value);
   if (!monto || monto <= 0) { alert('Ingresá un monto válido.'); return; }
 
-  // Obtener las ventas con sus precios para decidir cuáles marcar como cobradas
+  // Traer las ventas con su precio y monto ya cobrado
   const { data:ventas } = await DB.from('ventas')
-    .select('id, precio_venta')
+    .select('id, precio_venta, monto_cobrado')
     .in('id', data.ventaIds)
-    .order('created_at', { ascending: true });  // Cobramos primero las más viejas
+    .order('created_at', { ascending: true });
 
   // Crear el cobro
   const { data:cobro, error:ce } = await DB.from('cobros_consignacion').insert({
     lugar_id: data.lugarId,
     monto_total: monto,
-    cantidad_cuadros: 0,  // Lo actualizamos después con las ventas que pudimos cubrir
+    cantidad_cuadros: 0,
     detalle: { ventas_pendientes: data.ventaIds, monto_pagado: monto, total_sugerido: data.totalSugerido },
   }).select().single();
   if (ce) { alert('Error: ' + ce.message); return; }
 
-  // Distribuir el monto entre las ventas, marcando como cobradas las que entran completas
+  // Distribuir el monto entre las ventas
   let restante = monto;
-  const ventasCobradas = [];
+  let ventasTotalmenteCobradas = 0;
+  let ventasParciales = 0;
+
   for (const v of (ventas || [])) {
+    if (restante <= 0) break;
     const precio = Number(v.precio_venta || 0);
-    if (restante >= precio && precio > 0) {
-      ventasCobradas.push(v.id);
-      restante -= precio;
-    } else {
-      // No alcanza para cubrir esta venta entera → queda pendiente
-      break;
-    }
+    const yaCobrado = Number(v.monto_cobrado || 0);
+    const pendiente = precio - yaCobrado;
+    if (pendiente <= 0) continue;
+
+    const aCobrar = Math.min(pendiente, restante);
+    const nuevoMontoCobrado = yaCobrado + aCobrar;
+    const totalmenteCobrada = nuevoMontoCobrado >= precio;
+
+    await DB.from('ventas').update({
+      monto_cobrado: nuevoMontoCobrado,
+      cobrado: totalmenteCobrada,
+      cobro_id: totalmenteCobrada ? cobro.id : null,
+    }).eq('id', v.id);
+
+    restante -= aCobrar;
+    if (totalmenteCobrada) ventasTotalmenteCobradas++;
+    else ventasParciales++;
   }
 
-  // Marcar las ventas que sí entraron como cobradas
-  if (ventasCobradas.length > 0) {
-    await DB.from('ventas')
-      .update({ cobrado: true, cobro_id: cobro.id })
-      .in('id', ventasCobradas);
-  }
-
-  // Actualizar cantidad_cuadros del cobro
   await DB.from('cobros_consignacion')
-    .update({ cantidad_cuadros: ventasCobradas.length })
+    .update({ cantidad_cuadros: ventasTotalmenteCobradas })
     .eq('id', cobro.id);
 
-  // Mostrar info al usuario sobre el saldo restante
   const cubierto = monto - restante;
-  if (restante > 0) {
-    alert(`Cobro registrado.\n\nMonto cobrado: $${Number(monto).toLocaleString('es-AR')}\nCubre ${ventasCobradas.length} venta${ventasCobradas.length!==1?'s':''} de ${data.ventaIds.length}.\n\nEl resto queda como saldo pendiente.`);
-  } else if (cubierto < data.totalSugerido) {
-    alert(`Cobro registrado.\n\nCubre ${ventasCobradas.length} venta${ventasCobradas.length!==1?'s':''} de ${data.ventaIds.length}.\n\nQuedan ventas pendientes por cobrar.`);
-  }
+  let mensajeInfo = `Cobro registrado: $${Number(monto).toLocaleString('es-AR')}\n\n`;
+  if (ventasTotalmenteCobradas > 0) mensajeInfo += `✓ ${ventasTotalmenteCobradas} venta${ventasTotalmenteCobradas !== 1 ? 's' : ''} cobrada${ventasTotalmenteCobradas !== 1 ? 's' : ''} en su totalidad.\n`;
+  if (ventasParciales > 0) mensajeInfo += `⏳ ${ventasParciales} venta con cobro parcial pendiente.\n`;
+  if (restante > 0) mensajeInfo += `\nSobrante: $${Number(restante).toLocaleString('es-AR')} (no se aplicó a ninguna venta porque ya están todas cobradas).`;
+  alert(mensajeInfo);
 
   cerrarModal('modal-cobro');
   renderCobros(document.getElementById('adm-main'));
