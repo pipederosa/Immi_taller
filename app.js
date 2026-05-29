@@ -2499,20 +2499,16 @@ function cerrarMenuAdmin() {
 // ---- KPIs ----
 async function renderKPIs(main) {
   const [{ data:ventas },{ data:pedidos }] = await Promise.all([
-    DB.from('ventas').select('*'),
+    DB.from('ventas').select('*, unidades_cuadro(tipos_cuadro(nombre, codigo_id))'),
     DB.from('pedidos').select('*'),
   ]);
   const V = ventas||[], P = pedidos||[];
 
-  // Total efectivamente cobrado:
-  // - Cualquier venta (web, presencial o consignación) solo si está marcada como cobrada
   const cobrado = V.filter(v => v.precio_venta && v.cobrado);
   const totalCobrado = cobrado.reduce((s,v)=>s+(v.precio_venta||0),0);
-
-  // Pendiente: todas las que tienen precio pero no fueron cobradas
   const totalPend = V.filter(v=>!v.cobrado && v.precio_venta).reduce((s,v)=>s+(v.precio_venta||0),0);
 
-  // Gráfico por mes: solo lo cobrado
+  // Gráfico por mes
   const porMes = {};
   cobrado.filter(v=>v.created_at).forEach(v=>{
     const m = String(v.created_at).slice(0,7);
@@ -2520,6 +2516,20 @@ async function renderKPIs(main) {
   });
   const meses = Object.keys(porMes).sort().slice(-6);
   const maxV = Math.max(...meses.map(m=>porMes[m]),1);
+
+  // Top 10 cuadros más vendidos
+  const porCuadro = {};
+  V.forEach(v => {
+    const nom = v.unidades_cuadro?.tipos_cuadro?.nombre;
+    if (!nom) return;
+    if (!porCuadro[nom]) porCuadro[nom] = { cantidad: 0, total: 0, codigo: v.unidades_cuadro?.tipos_cuadro?.codigo_id || '' };
+    porCuadro[nom].cantidad += 1;
+    porCuadro[nom].total += Number(v.precio_venta || 0);
+  });
+  const topCuadros = Object.entries(porCuadro)
+    .sort((a,b) => b[1].cantidad - a[1].cantidad)
+    .slice(0, 10);
+  const maxCant = Math.max(...topCuadros.map(([,d]) => d.cantidad), 1);
 
   main.innerHTML=`
   <div class="adm-hdr"><h1>KPIs de ventas</h1></div>
@@ -2529,13 +2539,38 @@ async function renderKPIs(main) {
     <div class="stat"><div class="stat-v">${P.length}</div><div class="stat-l">Pedidos web</div></div>
     <div class="stat"><div class="stat-v" style="color:#f57f17">$${Number(totalPend).toLocaleString('es-AR')}</div><div class="stat-l">Pendiente cobrar</div></div>
   </div>
+
   <div class="chart-wrap">
     <div class="chart-tit">Cobros por mes ($)</div>
     <div class="bar-chart">
       ${meses.length===0?'<p style="text-align:center;color:var(--suave);align-self:center;width:100%">Sin datos aún</p>':meses.map(m=>{const[y,mo]=m.split('-');const lbl=new Date(y,mo-1).toLocaleDateString('es-AR',{month:'short'});const pct=(porMes[m]/maxV)*100;return`<div class="bar-it"><div class="bar-v">$${Math.round(porMes[m]/1000)}k</div><div class="bar-f" style="height:${Math.max(pct,4)}%"></div><div class="bar-lb">${lbl}</div></div>`;}).join('')}
     </div>
   </div>
-  <div class="tbl-wrap">
+
+  <div class="chart-wrap" style="margin-top:24px">
+    <div class="chart-tit">🏆 Top 10 cuadros más vendidos</div>
+    ${topCuadros.length === 0 ? '<p style="text-align:center;color:var(--suave);padding:40px">Sin datos aún</p>' : `
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+      ${topCuadros.map(([nom, d], i) => {
+        const pct = (d.cantidad / maxCant) * 100;
+        const medalla = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}°`;
+        return `<div style="display:flex;align-items:center;gap:12px">
+          <div style="width:36px;font-weight:600;font-size:.9rem;color:var(--suave)">${medalla}</div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-family:var(--display);font-size:1rem">${nom}${d.codigo?`<span style="color:var(--suave);font-size:.78rem"> · ${d.codigo}</span>`:''}</span>
+              <span style="font-size:.85rem"><strong>${d.cantidad}</strong> <span style="color:var(--suave)">vendido${d.cantidad!==1?'s':''}</span> · <strong style="color:var(--oro-osc)">$${Number(d.total).toLocaleString('es-AR')}</strong></span>
+            </div>
+            <div style="height:8px;background:var(--lino);border-radius:4px;overflow:hidden">
+              <div style="height:100%;background:linear-gradient(90deg,var(--oro),var(--oro-cl));width:${pct}%;transition:width .3s ease"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>
+
+  <div class="tbl-wrap" style="margin-top:24px">
     <div class="tbl-hdr"><h3 style="font-family:var(--display);font-size:1.2rem">Ventas por canal (solo cobradas)</h3></div>
     <table><thead><tr><th>Canal</th><th>Cantidad</th><th>Total $</th><th>Promedio $</th></tr></thead><tbody>
     ${[{key:'presencial',l:'Presencial'},{key:'web',l:'Web'},{key:'consignacion',l:'Consignación'}].map(c=>{
