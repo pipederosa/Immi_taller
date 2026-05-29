@@ -224,6 +224,18 @@ td{padding:14px 16px;border-bottom:1px solid var(--lino-osc);font-size:.88rem;ve
 .adm-overlay.on{display:block}
 .adm-main > div:nth-child(3){grid-template-columns:1fr!important;max-width:100%!important}
 #checkout-content > div:nth-child(2),#checkout-content > div:nth-child(3){grid-template-columns:1fr!important;gap:24px!important}
+.custom-select{position:relative;width:100%}
+.custom-select-btn{width:100%;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--r);padding:12px 16px;text-align:left;cursor:pointer;font-family:var(--body);font-size:.95rem;display:flex;align-items:center;gap:10px;color:var(--texto);transition:var(--tr)}
+.custom-select-btn:hover{border-color:var(--oro)}
+.custom-select-btn::after{content:'▾';margin-left:auto;color:var(--suave)}
+.custom-select-btn img{width:36px;height:36px;border-radius:var(--r);object-fit:cover;background:var(--lino)}
+.custom-select-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--r);box-shadow:var(--sombra-m);max-height:340px;overflow-y:auto;z-index:1000;display:none}
+.custom-select-dropdown.on{display:block}
+.custom-select-opt{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:var(--tr);font-size:.9rem;border-bottom:1px solid var(--lino)}
+.custom-select-opt:last-child{border-bottom:none}
+.custom-select-opt:hover{background:var(--lino)}
+.custom-select-opt img{width:36px;height:36px;border-radius:var(--r);object-fit:cover;background:var(--lino);flex-shrink:0}
+.custom-select-opt-ph{width:36px;height:36px;border-radius:var(--r);background:var(--lino);display:flex;align-items:center;justify-content:center;opacity:.4;flex-shrink:0}
 }
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease-in-out}
 .hero-slide.on{opacity:1}
@@ -2582,6 +2594,52 @@ async function renderKPIs(main) {
   </div>`;
 }
 
+function abrirCustomSelect(id) {
+  // Cerrar otros abiertos
+  document.querySelectorAll('.custom-select-dropdown.on').forEach(d => {
+    if (d.id !== id + '-drop') d.classList.remove('on');
+  });
+  const d = document.getElementById(id + '-drop');
+  d?.classList.toggle('on');
+}
+
+function elegirCustomSelect(id, valor, nombre, codigo, imagenUrl, callback) {
+  const btn = document.getElementById(id + '-btn');
+  const hidden = document.getElementById(id);
+  if (hidden) hidden.value = valor;
+  if (btn) {
+    btn.innerHTML = imagenUrl
+      ? `<img src="${imagenUrl}"/><span><strong>${codigo || ''}</strong> · ${nombre}</span>`
+      : `<div class="custom-select-opt-ph">✝</div><span><strong>${codigo || ''}</strong> · ${nombre}</span>`;
+  }
+  document.getElementById(id + '-drop')?.classList.remove('on');
+  if (callback) callback(valor);
+}
+
+function htmlCustomSelectCuadros(id, tipos, onChangeCb) {
+  return `<div class="custom-select">
+    <button type="button" class="custom-select-btn" id="${id}-btn" onclick="abrirCustomSelect('${id}')">
+      <span style="color:var(--suave)">Seleccioná...</span>
+    </button>
+    <input type="hidden" id="${id}" value=""/>
+    <div class="custom-select-dropdown" id="${id}-drop">
+      ${(tipos||[]).map(t => `
+        <div class="custom-select-opt" onclick="elegirCustomSelect('${id}','${t.id}','${(t.nombre||'').replace(/'/g,"\\'")}','${t.codigo_id||''}','${t.imagen_url||''}',${onChangeCb})">
+          ${t.imagen_url ? `<img src="${t.imagen_url}"/>` : '<div class="custom-select-opt-ph">✝</div>'}
+          <div><strong>${t.codigo_id||''}</strong> · ${t.nombre}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+// Cerrar al clickear fuera
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.custom-select')) {
+    document.querySelectorAll('.custom-select-dropdown.on').forEach(d => d.classList.remove('on'));
+  }
+});
+
 // ---- CATÁLOGO ----
 async function renderCatalogo(main) {
   const { data:tipos } = await DB.from('tipos_cuadro').select('*').order('created_at',{ascending:false});
@@ -2736,7 +2794,7 @@ async function renderStock(main) {
     <h3>Cargar cuadros al stock</h3>
     <p style="margin-bottom:24px">Registrá cuadros nuevos que terminaste de pintar</p>
     <div class="fg"><label class="fl">Tipo de cuadro *</label>
-      <select class="fs" id="c-tipo-id"><option value="">Seleccioná...</option>${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}</select>
+      ${htmlCustomSelectCuadros('c-tipo-id', tipos, 'null')}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option><option value="13x18">13x18</option><option value="15x15">15x15</option><option value="20x20">20x20</option><option value="personalizado">Personalizado</option></select></div>
@@ -2909,41 +2967,45 @@ async function cargarUnidadesVenta(tipoId) {
 }
 
 async function cambiarCanalVenta(canal) {
+  // Mostrar/ocultar campos según canal
   document.getElementById('v-lugar-wrap').style.display = canal === 'consignacion' ? 'block' : 'none';
-
-  const estadoFiltro = canal === 'consignacion' ? 'consignacion' : 'stock';
-
-  // Traer las unidades con su tipo_cuadro (join)
-  const { data:unidades, error } = await DB.from('unidades_cuadro')
-    .select('tipo_cuadro_id, tipos_cuadro(id, codigo_id, nombre)')
-    .eq('activo', true)
-    .eq('estado', estadoFiltro);
-
-  if (error) {
-    console.error('Error filtrando tipos:', error);
-    return;
+  document.getElementById('v-desc-wrap').style.display = canal === 'personalizado' ? 'block' : 'none';
+  const tipoWrap = document.getElementById('v-tipo-wrap');
+  const tipoLabel = document.getElementById('v-tipo-label');
+  if (canal === 'personalizado') {
+    if (tipoLabel) tipoLabel.textContent = 'Tipo de cuadro (opcional)';
+  } else {
+    if (tipoLabel) tipoLabel.textContent = 'Tipo de cuadro *';
   }
 
-  // Dedup por tipo_cuadro_id
-  const tiposMap = {};
-  (unidades || []).forEach(u => {
-    if (u.tipos_cuadro && !tiposMap[u.tipos_cuadro.id]) {
-      tiposMap[u.tipos_cuadro.id] = u.tipos_cuadro;
-    }
-  });
-  const tiposFiltrados = Object.values(tiposMap).sort((a, b) => (a.codigo_id || '').localeCompare(b.codigo_id || ''));
-
-  const selTipo = document.getElementById('v-tipo-id');
-  if (selTipo) {
-    if (tiposFiltrados.length === 0) {
-      selTipo.innerHTML = `<option value="">No hay cuadros en ${canal === 'consignacion' ? 'consignación' : 'stock'}</option>`;
-    } else {
-      selTipo.innerHTML = '<option value="">Seleccioná...</option>' +
-        tiposFiltrados.map(t => `<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('');
-    }
+  // Determinar qué tipos mostrar
+  let tiposFiltrados = [];
+  if (canal === 'personalizado') {
+    // Para personalizado: traer TODOS los tipos activos (opcional)
+    const { data:tipos } = await DB.from('tipos_cuadro').select('*').eq('activo', true).order('codigo_id');
+    tiposFiltrados = tipos || [];
+  } else {
+    // Para presencial o consignación: solo los que tienen unidades de ese estado
+    const estadoFiltro = canal === 'consignacion' ? 'consignacion' : 'stock';
+    const { data:unidades } = await DB.from('unidades_cuadro')
+      .select('tipo_cuadro_id, tipos_cuadro(id, codigo_id, nombre, imagen_url)')
+      .eq('activo', true)
+      .eq('estado', estadoFiltro);
+    const tiposMap = {};
+    (unidades || []).forEach(u => {
+      if (u.tipos_cuadro && !tiposMap[u.tipos_cuadro.id]) tiposMap[u.tipos_cuadro.id] = u.tipos_cuadro;
+    });
+    tiposFiltrados = Object.values(tiposMap).sort((a, b) => (a.codigo_id || '').localeCompare(b.codigo_id || ''));
   }
 
-  // Limpiar el select de unidades porque cambió el canal
+  // Renderizar el custom select dentro del wrapper
+  const wrapTipo = document.getElementById('v-tipo-wrap');
+  if (wrapTipo) {
+    const labelText = canal === 'personalizado' ? 'Tipo de cuadro (opcional)' : 'Tipo de cuadro *';
+    wrapTipo.innerHTML = `<label class="fl">${labelText}</label>${htmlCustomSelectCuadros('v-tipo-id', tiposFiltrados, 'cargarUnidadesVenta')}`;
+  }
+
+  // Limpiar el select de unidades
   const wrap = document.getElementById('v-unid-wrap');
   if (wrap) wrap.style.display = 'none';
 }
