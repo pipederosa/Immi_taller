@@ -934,41 +934,45 @@ async function confirmarCheckout() {
   }
 
   // Para cada item del carrito, crear una venta (si es stock) y marcar la unidad como vendida
-  for (const item of CARRITO) {
-    if (item.tipo === 'stock' && item.unidadesDisponibles?.length > 0) {
-      // Tomar las primeras N unidades disponibles
-      const unidadesAUsar = item.unidadesDisponibles.slice(0, item.cantidad);
-      for (const unidId of unidadesAUsar) {
-        await DB.from('unidades_cuadro').update({ estado: 'vendido' }).eq('id', unidId);
-        await DB.from('ventas').insert({
-          unidad_id: unidId,
-          pedido_id: pedidoCreado.id,
-          canal: 'web',
-          cliente_nombre: CHECKOUT.nombre,
-          cliente_email: CHECKOUT.email,
-          cliente_telefono: CHECKOUT.tel || null,
-          precio_venta: item.precio,
-          cobrado: false,
-          entregado: false,
-        });
-      }
-    } else if (item.tipo === 'encargo') {
-      // Para encargos, crear una venta sin unidad_id (será asignada cuando se pinte)
-      for (let i = 0; i < item.cantidad; i++) {
-        await DB.from('ventas').insert({
-          unidad_id: null,
-          pedido_id: pedidoCreado.id,
-          canal: 'web',
-          cliente_nombre: CHECKOUT.nombre,
-          cliente_email: CHECKOUT.email,
-          cliente_telefono: CHECKOUT.tel || null,
-          precio_venta: item.precio,
-          cobrado: false,
-          entregado: false,
-        });
-      }
+ for (const item of CARRITO) {
+  if (item.tipo === 'stock' && item.unidadesDisponibles?.length > 0) {
+    const unidadesAUsar = item.unidadesDisponibles.slice(0, item.cantidad);
+    for (const unidId of unidadesAUsar) {
+      await DB.from('unidades_cuadro').update({ estado: 'vendido' }).eq('id', unidId);
+      await DB.from('ventas').insert({
+        unidad_id: unidId,
+        pedido_id: pedidoCreado.id,
+        tipo_cuadro_id: item.tipoId,
+        tamanio: item.tamanio,
+        es_encargo: false,
+        canal: 'web',
+        cliente_nombre: CHECKOUT.nombre,
+        cliente_email: CHECKOUT.email,
+        cliente_telefono: CHECKOUT.tel || null,
+        precio_venta: item.precio,
+        cobrado: false,
+        entregado: false,
+      });
+    }
+  } else if (item.tipo === 'encargo') {
+    for (let i = 0; i < item.cantidad; i++) {
+      await DB.from('ventas').insert({
+        unidad_id: null,
+        pedido_id: pedidoCreado.id,
+        tipo_cuadro_id: item.tipoId,
+        tamanio: item.tamanio,
+        es_encargo: true,
+        canal: 'web',
+        cliente_nombre: CHECKOUT.nombre,
+        cliente_email: CHECKOUT.email,
+        cliente_telefono: CHECKOUT.tel || null,
+        precio_venta: item.precio,
+        cobrado: false,
+        entregado: false,
+      });
     }
   }
+}
 
   // Si eligió MercadoPago → crear preferencia y redirigir
   if (CHECKOUT.pago === 'mercadopago') {
@@ -3206,11 +3210,11 @@ let FILTRO_VTA = { fecha:'', cuadro:'', cliente:'', canal:'', cobrado:'', entreg
 
 async function renderVentas(main) {
   const [{ data:ventas },{ data:lugares }] = await Promise.all([
-    DB.from('ventas')
-      .select('*, unidades_cuadro(tamanio, tecnica, tipos_cuadro(nombre, codigo_id, imagen_url)), lugares(nombre)')
-      .order('created_at',{ascending:false}),
-    DB.from('lugares').select('*').eq('activo',true),
-  ]);
+  DB.from('ventas')
+    .select('*, unidades_cuadro(tamanio, tecnica, tipos_cuadro(nombre, codigo_id, imagen_url)), tipo_cuadro_directo:tipos_cuadro!tipo_cuadro_id(nombre, codigo_id, imagen_url), lugares(nombre)')
+    .order('created_at',{ascending:false}),
+  DB.from('lugares').select('*').eq('activo',true),
+]);
 
   window._VENTAS_DATA = ventas || [];
 
@@ -3448,11 +3452,14 @@ function renderVentasTblContent(data) {
     return `<tr>
       <td style="font-size:.82rem">${v.created_at?new Date(v.created_at).toLocaleDateString('es-AR'):'—'}</td>
       <td style="font-size:.85rem">
-        ${v.unidades_cuadro?.tipos_cuadro?.codigo_id?`<span style="font-size:.72rem;color:var(--oro);letter-spacing:.1em">${v.unidades_cuadro.tipos_cuadro.codigo_id}</span><br>`:''}
-        <strong>${v.unidades_cuadro?.tipos_cuadro?.nombre||'—'}</strong>
-        ${v.unidades_cuadro?.tecnica?`<br><span style="font-size:.75rem;color:var(--suave)">${v.unidades_cuadro.tecnica}</span>`:''}
+        ${(() => {
+          // Priorizar info de la unidad asignada, sino usar la del tipo directo (carrito web)
+          const tipo = v.unidades_cuadro?.tipos_cuadro || v.tipo_cuadro_directo;
+          if (!tipo) return '—';
+          return `${tipo.codigo_id?`<span style="font-size:.72rem;color:var(--oro);letter-spacing:.1em">${tipo.codigo_id}</span><br>`:''}<strong>${tipo.nombre||'—'}</strong>${v.es_encargo?'<br><span class="tag-encargo" style="font-size:.65rem;padding:1px 6px">Encargo</span>':''}${v.unidades_cuadro?.tecnica?`<br><span style="font-size:.75rem;color:var(--suave)">${v.unidades_cuadro.tecnica}</span>`:''}`;
+        })()}
       </td>
-      <td>${v.unidades_cuadro?.tamanio||'—'}</td>
+      <td>${v.unidades_cuadro?.tamanio || v.tamanio || '—'}</td>
       <td style="font-size:.82rem">
         ${canalLabels[v.canal]||v.canal}
         ${v.canal==='consignacion'&&v.lugares?.nombre?`<br><span style="font-size:.75rem;color:var(--suave)">📍 ${v.lugares.nombre}</span>`:''}
