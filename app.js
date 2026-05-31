@@ -909,7 +909,13 @@ async function confirmarCheckout() {
   // Crear UN pedido principal en la base que englobe todo
   const datosPedido = {
     numero_pedido: numeroPedido,
-    tipo: CARRITO.some(i => i.tipo === 'encargo') ? 'stock' : 'stock',  // Mantenemos 'stock' como tipo principal, los encargos quedan registrados en la descripcion
+    tipo: (() => {
+      const tieneStock = CARRITO.some(i => i.tipo === 'stock');
+      const tieneEncargo = CARRITO.some(i => i.tipo === 'encargo');
+      if (tieneStock && tieneEncargo) return 'mixto';
+      if (tieneEncargo) return 'encargo';
+      return 'stock'
+    })(),
     tipo_cuadro_id: CARRITO[0]?.tipoId || null,  // El primer cuadro del carrito como referencia
     unidad_id: null,  // No asignamos unidad específica aún
     cliente_nombre: CHECKOUT.nombre,
@@ -3125,12 +3131,14 @@ async function renderPedidos(main) {
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
     <input type="text" class="fi" placeholder=" N° pedido" value="${FILTRO_PED.busqNum}" oninput="FILTRO_PED.busqNum=this.value;renderPedidosTbl()"/>
     <input type="text" class="fi" placeholder=" Cliente" value="${FILTRO_PED.busqCli}" oninput="FILTRO_PED.busqCli=this.value;renderPedidosTbl()"/>
-    <select class="fs" onchange="FILTRO_PED.tipo=this.value;renderPedidosTbl()">
-      <option value="">Todos los tipos</option>
-      <option value="stock" ${FILTRO_PED.tipo==='stock'?'selected':''}>Stock</option>
-      <option value="personalizado_archivo" ${FILTRO_PED.tipo==='personalizado_archivo'?'selected':''}>Pers. archivo</option>
-      <option value="personalizado_nuevo" ${FILTRO_PED.tipo==='personalizado_nuevo'?'selected':''}>Pers. nuevo</option>
-    </select>
+  <select class="fs" onchange="FILTRO_PED.tipo=this.value;renderPedidosTbl()">
+    <option value="">Todos los tipos</option>
+    <option value="stock" ${FILTRO_PED.tipo==='stock'?'selected':''}>Stock</option>
+    <option value="encargo" ${FILTRO_PED.tipo==='encargo'?'selected':''}>Encargo</option>
+    <option value="mixto" ${FILTRO_PED.tipo==='mixto'?'selected':''}>Mixto</option>
+    <option value="personalizado_archivo" ${FILTRO_PED.tipo==='personalizado_archivo'?'selected':''}>Pers. archivo</option>
+    <option value="personalizado_nuevo" ${FILTRO_PED.tipo==='personalizado_nuevo'?'selected':''}>Pers. nuevo</option>
+  </select>
     <select class="fs" onchange="FILTRO_PED.pago=this.value;renderPedidosTbl()">
       <option value="">Cualquier estado de pago</option>
       <option value="pendiente" ${FILTRO_PED.pago==='pendiente'?'selected':''}>Pendiente</option>
@@ -3183,7 +3191,7 @@ function renderPedidosTblContent(data) {
     return `<tr>
       <td style="font-family:var(--display);font-size:.85rem">${p.numero_pedido}</td>
       <td>${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
-      <td style="font-size:.82rem">${{stock:'Stock',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
+      <td style="font-size:.82rem">${{stock:'Stock',encargo:'Encargo',mixto:'Mixto',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
       <td style="font-size:.85rem">${p.tipos_cuadro?.nombre||'—'}${p.descripcion_personalizado?`<br><span style="font-size:.75rem;color:var(--suave);display:block;max-width:160px">${p.descripcion_personalizado}</span>`:''}${p.tamanio?`<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>`:''}</td>
       <td>${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
       <td style="text-transform:capitalize">${p.metodo_pago||'—'}</td>
