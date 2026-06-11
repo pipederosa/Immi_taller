@@ -259,6 +259,47 @@ let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pa
 let CARRITO = [];
 let PRECIOS_ENCARGADO = {};
 
+// Comprimir imagen en el navegador antes de subir
+async function comprimirImagen(file, maxDim = 1200, calidad = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+
+    img.onload = () => {
+      let { width, height } = img;
+      // Redimensionar manteniendo proporción si excede maxDim
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob((blob) => {
+        if (!blob) { reject(new Error('No se pudo comprimir')); return; }
+        // Convertir blob a File con nombre original pero forzando .jpg
+        const nombreSinExt = file.name.replace(/\.[^.]+$/, '');
+        const fileComprimido = new File([blob], `${nombreSinExt}.jpg`, { type: 'image/jpeg' });
+        console.log(`Imagen comprimida: ${(file.size/1024/1024).toFixed(2)} MB → ${(fileComprimido.size/1024/1024).toFixed(2)} MB`);
+        resolve(fileComprimido);
+      }, 'image/jpeg', calidad);
+    };
+    img.onerror = reject;
+  });
+}
+
 // ============================================================
 // INIT / ROUTER
 // ============================================================
@@ -1268,16 +1309,18 @@ async function avanzarPerso2() {
 
   // Subir imagen si hay
   const fi = document.getElementById('ps-imgref-file');
-  if (fi?.files?.length > 0) {
-    const f = fi.files[0];
-    const ext = f.name.split('.').pop();
-    const fname = `ref-${Date.now()}.${ext}`;
-    const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
-    if (!ue) {
-      const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
-      PERSO.imgref = ud.publicUrl;
-    }
+if (fi?.files?.length > 0) {
+  let f = fi.files[0];
+  if (f.type.startsWith('image/')) {
+    try { f = await comprimirImagen(f, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir'); }
   }
+  const fname = `ref-${Date.now()}.jpg`;
+  const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
+  if (!ue) {
+    const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
+    PERSO.imgref = ud.publicUrl;
+  }
+}
 
   renderPersoPaso(3);
 }
@@ -2714,13 +2757,19 @@ function abrirFormTipo(t) {
 
 async function guardarTipo(id) {
   const fi = document.getElementById('tf-img-file');
-  if (fi?.files?.length>0) {
-    const f = fi.files[0]; const ext = f.name.split('.').pop();
-    const fname = `tipo-${Date.now()}.${ext}`;
-    const { error:ue } = await DB.storage.from('cuadros').upload(fname,f,{upsert:true});
-    if (!ue) { const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname); document.getElementById('tf-img').value = ud.publicUrl; }
-    else { alert('Error al subir imagen: '+ue.message); return; }
+if (fi?.files?.length > 0) {
+  let f = fi.files[0];
+  // Comprimir si es imagen
+  if (f.type.startsWith('image/')) {
+    try { f = await comprimirImagen(f, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir, subiendo original'); }
   }
+  const fname = `cuadro-${Date.now()}.jpg`;
+  const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
+  if (!ue) {
+    const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
+    document.getElementById('tf-img').value = ud.publicUrl;
+  }
+}
   const tams = ['15x15','20x20','personalizado'].filter(t=>document.getElementById(`tf-tam-${t}`)?.checked);
   const datos = {
     nombre: document.getElementById('tf-nom').value,
