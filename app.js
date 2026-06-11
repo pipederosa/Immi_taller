@@ -1400,14 +1400,19 @@ async function confirmarPerso() {
   if (error) {
     alert('Error al enviar el encargo. Intentá de nuevo.');
     btn.disabled = false;
-    btn.textContent = ' Enviar encargo';
+    btn.textContent = '✨ Enviar encargo';
     return;
   }
 
-  // Email al vendedor
   enviarEmailPerso(numeroPedido);
 
   PERSO._numpedido = numeroPedido;
+
+  // Asegurarse que CFG esté cargado antes de mostrar el éxito
+  if (!CFG.whatsapp_numero) {
+    await cargarConfig();
+  }
+
   renderPersoPaso(99);
 }
 
