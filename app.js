@@ -425,9 +425,13 @@ function guardarCarrito() {
 }
 
 function agregarAlCarrito(item) {
-  // item = { tipoId, tipoNombre, tipoCodigo, imagenUrl, tamanio, tipo: 'stock'|'encargo', precio, cantidad, unidadId? }
-  // Si ya hay un item igual (mismo cuadro, tamaño y tipo), sumar cantidad
-  const existe = CARRITO.find(i => i.tipoId === item.tipoId && i.tamanio === item.tamanio && i.tipo === item.tipo);
+  // Si ya hay un item igual (mismo cuadro, tamaño, tipo Y modificaciones), sumar cantidad
+  const existe = CARRITO.find(i =>
+    i.tipoId === item.tipoId &&
+    i.tamanio === item.tamanio &&
+    i.tipo === item.tipo &&
+    (i.modificaciones || '') === (item.modificaciones || '')
+  );
   if (existe) {
     existe.cantidad += item.cantidad;
   } else {
@@ -482,6 +486,7 @@ function mostrarAvisoCarrito(item) {
 let DETALLE_TIPO = null;
 let DETALLE_TAM = null;
 let DETALLE_CANT = 1;
+let DETALLE_MODIF = '';
 
 function htmlDetalle() {
   return `${htmlNav()}
@@ -539,16 +544,12 @@ async function cargarDetalle() {
 function renderDetalle() {
   const t = DETALLE_TIPO;
   if (!t) return;
+
   const tamsCatalogo = Object.keys(PRECIOS).filter(x => x !== 'personalizado');
-  const enStock = t.unidades.filter(u => u.estado === 'stock' && u.tamanio === DETALLE_TAM);
   const enCons = t.unidades.filter(u => u.estado === 'consignacion' && u.tamanio === DETALLE_TAM);
-  const hayStock = enStock.length > 0;
   const hayConsig = enCons.length > 0;
 
-  const precioStock = PRECIOS[DETALLE_TAM] || 0;
-  const precioEncargo = PRECIOS[DETALLE_TAM] || 0;
-  const precioMostrar = hayStock ? precioStock : precioEncargo;
-  const esEncargo = !hayStock;
+  const precio = PRECIOS[DETALLE_TAM] || 0;
 
   // Agrupar consignación por lugar
   const porLugar = {};
@@ -564,62 +565,61 @@ function renderDetalle() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start">
       <!-- IMAGEN -->
       <div style="background:var(--lino);border-radius:var(--rm);aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:var(--sombra-m);position:relative">
-        ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="abrirLightbox('${t.imagen_url}')"/><button onclick="abrirLightbox('${t.imagen_url}')" title="Ver más grande" style="position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);color:white;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;backdrop-filter:blur(8px);z-index:10;transition:var(--tr)" onmouseover="this.style.background='rgba(0,0,0,.85)';this.style.transform='scale(1.08)'" onmouseout="this.style.background='rgba(0,0,0,.6)';this.style.transform='scale(1)'">🔍</button>`:'<div style="font-size:5rem;opacity:.2">✝</div>'}
+        ${t.imagen_url ? `<img src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="abrirLightbox('${t.imagen_url}')"/><button onclick="abrirLightbox('${t.imagen_url}')" title="Ver más grande" style="position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);color:white;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;backdrop-filter:blur(8px);z-index:10;transition:var(--tr)" onmouseover="this.style.background='rgba(0,0,0,.85)';this.style.transform='scale(1.08)'" onmouseout="this.style.background='rgba(0,0,0,.6)';this.style.transform='scale(1)'">🔍</button>` : '<div style="font-size:5rem;opacity:.2">✝</div>'}
       </div>
 
       <!-- INFO + ACCIONES -->
       <div>
         <span style="font-size:.78rem;letter-spacing:.2em;color:var(--oro);text-transform:uppercase;font-weight:500">${t.codigo_id}</span>
         <h1 style="font-family:var(--display);font-size:2.6rem;margin:4px 0 16px">${t.nombre}</h1>
-        ${t.descripcion?`<p style="font-size:1rem;line-height:1.7;margin-bottom:32px">${t.descripcion}</p>`:''}
+        ${t.descripcion ? `<p style="font-size:1rem;line-height:1.7;margin-bottom:32px">${t.descripcion}</p>` : ''}
 
         <!-- Selector tamaño -->
         <div class="fg">
           <label class="fl">Tamaño</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             ${tamsCatalogo.map(tam => `
-              <button class="f-btn ${DETALLE_TAM===tam?'on':''}" onclick="cambiarTamDetalle('${tam}')" style="flex:1;min-width:100px">${tam}</button>
+              <button class="f-btn ${DETALLE_TAM === tam ? 'on' : ''}" onclick="cambiarTamDetalle('${tam}')" style="flex:1;min-width:100px">${tam}</button>
             `).join('')}
           </div>
         </div>
 
         <!-- Precio -->
         <div style="background:var(--lino);border-radius:var(--rm);padding:20px;margin:24px 0">
-          <div style="font-size:.75rem;letter-spacing:.15em;color:var(--suave);text-transform:uppercase;margin-bottom:4px">${esEncargo?'Precio por encargo':'Precio'}</div>
+          <div style="font-size:.75rem;letter-spacing:.15em;color:var(--suave);text-transform:uppercase;margin-bottom:4px">Precio</div>
           <div style="font-family:var(--display);font-size:2.4rem;color:var(--oro-osc);line-height:1">
-            ${precioMostrar>0 ? '$' + Number(precioMostrar).toLocaleString('es-AR') : 'A consultar'}
+            ${precio > 0 ? '$' + Number(precio).toLocaleString('es-AR') : 'A consultar'}
           </div>
-          ${esEncargo?'<p style="font-size:.85rem;color:var(--suave);margin-top:8px">⏳ Cuadro pintado bajo encargo. Tiempo estimado: 2-4 semanas.</p>':''}
         </div>
 
-        <!-- Disponibilidad -->
-        ${hayStock ? `
-          <div style="background:#e8f5e9;border-left:3px solid #43a047;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:16px">
-            <strong style="color:#2e7d32">✓ En stock</strong>
-            <span style="color:var(--suave);font-size:.88rem"> · ${enStock.length} disponible${enStock.length!==1?'s':''} para entrega inmediata</span>
-          </div>
-        ` : `
-          <div style="background:#fff8e1;border-left:3px solid #f9a825;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:16px">
-            <strong style="color:#f57f17">📝 Encargar esta versión</strong>
-            <span style="color:var(--suave);font-size:.88rem"> · Sin stock disponible en ${DETALLE_TAM}. Lo pintamos para vos.</span>
-          </div>
-        `}
+        <!-- Cartel único (verde) -->
+        <div style="background:#e8f5e9;border-left:3px solid #43a047;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:16px">
+          <strong style="color:#2e7d32">📝 Encargar esta versión en ${DETALLE_TAM}.</strong>
+          <span style="color:var(--suave);font-size:.88rem"> Lo pintamos para vos.</span>
+        </div>
 
         <!-- Si hay consignación -->
         ${hayConsig ? `
           <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:16px">
-            <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">⛪ También disponible en:</p>
+            <p style="font-size:.85rem;color:var(--suave);margin-bottom:12px">🏪 También disponible en:</p>
             ${Object.values(porLugar).map(({lugar, cantidad}) => `
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--lino-osc)">
                 <div>
                   <strong>${lugar?.nombre || 'Sin nombre'}</strong>
-                  <span style="color:var(--suave);font-size:.85rem"> · ${cantidad} unidad${cantidad!==1?'es':''}</span>
+                  <span style="color:var(--suave);font-size:.85rem"> · ${cantidad} unidad${cantidad !== 1 ? 'es' : ''}</span>
                 </div>
                 <button class="btn btn-gh" style="padding:6px 14px;font-size:.72rem" onclick="verLugar('${lugar?.id}')">Ver info</button>
               </div>
             `).join('')}
           </div>
         ` : ''}
+
+        <!-- Modificaciones del encargo -->
+        <div class="fg" style="margin-top:16px">
+          <label class="fl">✏️ ¿Tenés alguna modificación que le quieras hacer?</label>
+          <p style="font-size:.8rem;color:var(--suave);margin-bottom:8px">Ejemplo: color del fondo, color de la vestimenta, color del pelo, etc. (opcional)</p>
+          <textarea class="ft" id="det-modif" placeholder="Contanos qué modificaciones querés hacer..." style="min-height:80px" oninput="DETALLE_MODIF=this.value">${DETALLE_MODIF || ''}</textarea>
+        </div>
 
         <!-- Cantidad y agregar -->
         <div style="display:flex;gap:16px;align-items:center;margin-top:24px;flex-wrap:wrap">
@@ -631,8 +631,8 @@ function renderDetalle() {
               <button onclick="cambiarCantDetalle(1)">+</button>
             </div>
           </div>
-          <button class="btn ${esEncargo?'btn-g':'btn-p'}" onclick="agregarDetalleAlCarrito()" style="flex:1;min-width:200px;padding:16px 24px;font-size:.85rem">
-            ${esEncargo ? '📝 Encargar' : '🛒 Agregar al carrito'}
+          <button class="btn btn-p" onclick="agregarDetalleAlCarrito()" style="flex:1;min-width:200px;padding:16px 24px;font-size:.85rem">
+            🛒 Agregar al carrito
           </button>
         </div>
       </div>
@@ -655,8 +655,6 @@ function cambiarCantDetalle(delta) {
 function agregarDetalleAlCarrito() {
   const t = DETALLE_TIPO;
   if (!t) return;
-  const enStock = t.unidades.filter(u => u.estado === 'stock' && u.tamanio === DETALLE_TAM);
-  const hayStock = enStock.length > 0;
   const precio = PRECIOS[DETALLE_TAM] || 0;
 
   if (precio <= 0) {
@@ -664,11 +662,7 @@ function agregarDetalleAlCarrito() {
     return;
   }
 
-  // Si es stock, validar que no se pida más que lo disponible
-  if (hayStock && DETALLE_CANT > enStock.length) {
-    alert(`Solo hay ${enStock.length} unidad${enStock.length!==1?'es':''} en stock para ${DETALLE_TAM}. Vamos a agregar el máximo disponible.`);
-    DETALLE_CANT = enStock.length;
-  }
+  const modif = document.getElementById('det-modif')?.value.trim() || '';
 
   agregarAlCarrito({
     tipoId: t.id,
@@ -676,17 +670,20 @@ function agregarDetalleAlCarrito() {
     tipoCodigo: t.codigo_id,
     imagenUrl: t.imagen_url || null,
     tamanio: DETALLE_TAM,
-    tipo: hayStock ? 'stock' : 'encargo',
+    tipo: 'encargo',  // Todo es encargo desde la web
     precio: precio,
     cantidad: DETALLE_CANT,
-    // Para stock guardamos las unidades disponibles (la asignación final es al confirmar)
-    unidadesDisponibles: hayStock ? enStock.map(u => u.id) : [],
+    modificaciones: modif,
+    unidadesDisponibles: [],  // No aplica porque todo es encargo
   });
 
-  // Resetear cantidad después de agregar
+  // Resetear
   DETALLE_CANT = 1;
-  const el = document.getElementById('detalle-cant');
-  if (el) el.textContent = '1';
+  DETALLE_MODIF = '';
+  const elCant = document.getElementById('detalle-cant');
+  if (elCant) elCant.textContent = '1';
+  const elMod = document.getElementById('det-modif');
+  if (elMod) elMod.value = '';
 }
 
 let _zoomNivel = 1;
