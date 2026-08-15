@@ -2734,7 +2734,7 @@ document.addEventListener('click', (e) => {
 
 // ---- CATÁLOGO ----
 async function renderCatalogo(main) {
-  const { data:tipos } = await DB.from('tipos_cuadro').select('*').order('created_at',{ascending:false});
+  const { data:tipos } = await DB.from('tipos_cuadro').select('*').order('nombre');
   TIPOS_CACHE = tipos||[];
   main.innerHTML=`
   <div class="adm-hdr">
@@ -2749,7 +2749,7 @@ async function renderCatalogo(main) {
       <div class="tipo-info">
         <span class="tipo-cod">${t.codigo_id}</span>
         <div class="tipo-nom">${t.nombre}</div>
-        <p style="font-size:.82rem;margin-top:4px">Tamaños: ${Object.keys(PRECIOS).filter(x=>x!=='personalizado').join(', ')||'—'}</p>
+        <p style="font-size:.82rem;margin-top:4px">Tamaños: ${Object.keys(PRECIOS).filter(x=>x!=='personalizado').sort((a,b)=>{const nA=parseInt((a.match(/\d+/)||['0'])[0],10);const nB=parseInt((b.match(/\d+/)||['0'])[0],10);return nA-nB;}).join(', ')||'—'}</p>
         ${t.descripcion?`<p style="font-size:.82rem;margin-top:4px">${t.descripcion}</p>`:''}
       </div>
       <div class="tipo-acc" style="display:flex;gap:8px">
