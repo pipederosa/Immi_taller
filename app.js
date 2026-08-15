@@ -614,11 +614,17 @@ function renderDetalle() {
           </div>
         ` : ''}
 
-        <!-- Modificaciones del encargo -->
-        <div class="fg" style="margin-top:16px">
-          <label class="fl">✏️ ¿Tenés alguna modificación que le quieras hacer?</label>
-          <p style="font-size:.8rem;color:var(--suave);margin-bottom:8px">Ejemplo: color del fondo, color de la vestimenta, color del pelo, etc. (opcional)</p>
-          <textarea class="ft" id="det-modif" placeholder="Contanos qué modificaciones querés hacer..." style="min-height:80px" oninput="DETALLE_MODIF=this.value">${DETALLE_MODIF || ''}</textarea>
+        <!-- Modificaciones del encargo (destacado) -->
+        <div style="background:linear-gradient(135deg,#fff8e1,#ffecb3);border:2px solid #f9a825;border-radius:var(--rm);padding:20px;margin-top:24px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="font-size:1.6rem">✏️</div>
+            <label class="fl" style="margin:0;font-size:.95rem;color:#e65100">Personalización del cuadro</label>
+          </div>
+          <p style="font-size:.88rem;color:#5d4037;margin-bottom:12px;line-height:1.5">
+            Contanos las modificaciones que querés hacerle al cuadro (color del fondo, color de la vestimenta, color del pelo, marco, etc.).<br>
+            <strong>Es importante completar esto antes de agregarlo al carrito.</strong>
+          </p>
+          <textarea class="ft" id="det-modif" placeholder="Ej: quisiera el fondo azul, la vestimenta blanca y sin marco..." style="min-height:100px;background:var(--marfil);border:1px solid #f9a825" oninput="DETALLE_MODIF=this.value">${DETALLE_MODIF || ''}</textarea>
         </div>
 
         <!-- Cantidad y agregar -->
@@ -664,20 +670,30 @@ function agregarDetalleAlCarrito() {
 
   const modif = document.getElementById('det-modif')?.value.trim() || '';
 
+  // Validar que haya modificaciones (o al menos confirmar que se quiere sin modificaciones)
+  if (!modif) {
+    const seguir = confirm('⚠️ No indicaste ninguna modificación.\n\n¿Querés el cuadro tal cual aparece en la foto (sin cambios)?\n\nAceptar = Sí, sin modificaciones\nCancelar = Volver y agregar modificaciones');
+    if (!seguir) {
+      // Hacer foco en el textarea
+      const el = document.getElementById('det-modif');
+      if (el) { el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+      return;
+    }
+  }
+
   agregarAlCarrito({
     tipoId: t.id,
     tipoNombre: t.nombre,
     tipoCodigo: t.codigo_id,
     imagenUrl: t.imagen_url || null,
     tamanio: DETALLE_TAM,
-    tipo: 'encargo',  // Todo es encargo desde la web
+    tipo: 'encargo',
     precio: precio,
     cantidad: DETALLE_CANT,
-    modificaciones: modif,
-    unidadesDisponibles: [],  // No aplica porque todo es encargo
+    modificaciones: modif || 'Sin modificaciones (tal cual la foto)',
+    unidadesDisponibles: [],
   });
 
-  // Resetear
   DETALLE_CANT = 1;
   DETALLE_MODIF = '';
   const elCant = document.getElementById('detalle-cant');
