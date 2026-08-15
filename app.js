@@ -2729,21 +2729,15 @@ async function renderCatalogo(main) {
 }
 
 function abrirFormTipo(t) {
-  const el = document.getElementById('form-tipo-inline'); if(!el) return;
-  el.style.display='block';
-  const tams = ['13x18','15x15','20x20','personalizado'];
-  const selTams = t?.tamanios_disponibles||[];
-  el.innerHTML=`<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:32px;margin-bottom:24px">
+  const el = document.getElementById('form-tipo-inline');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `<div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:32px;margin-bottom:24px">
     <h3 style="font-family:var(--display);font-size:1.6rem;margin-bottom:24px">${t?'Editar tipo de cuadro':'Nuevo tipo de cuadro'}</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="tf-nom" value="${t?.nombre||''}"/></div>
       <div class="fg"><label class="fl">Código ID *</label><input class="fi" id="tf-cod" value="${t?.codigo_id||''}" placeholder="IMM-001"/></div>
       <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="ft" id="tf-desc" style="min-height:80px">${t?.descripcion||''}</textarea></div>
-      <div class="fg" style="grid-column:1/-1"><label class="fl">Tamaños disponibles</label>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px">
-          ${tams.map(tam=>`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="tf-tam-${tam}" ${selTams.includes(tam)?'checked':''} style="width:16px;height:16px;accent-color:var(--oro)"/> ${tam}</label>`).join('')}
-        </div>
-      </div>
       <div class="fg" style="grid-column:1/-1"><label class="fl">Imagen del cuadro</label>
         ${t?.imagen_url?`<img src="${t.imagen_url}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r);margin-bottom:8px;display:block"/>`:''}
         <input class="fi" type="file" id="tf-img-file" accept="image/*" style="padding:10px"/>
@@ -2757,35 +2751,32 @@ function abrirFormTipo(t) {
   </div>`;
   el.scrollIntoView({behavior:'smooth'});
 }
-
 async function guardarTipo(id) {
   const fi = document.getElementById('tf-img-file');
-if (fi?.files?.length > 0) {
-  let f = fi.files[0];
-  // Comprimir si es imagen
-  if (f.type.startsWith('image/')) {
-    try { f = await comprimirImagen(f, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir, subiendo original'); }
+  if (fi?.files?.length > 0) {
+    let f = fi.files[0];
+    // Comprimir si es imagen
+    if (f.type.startsWith('image/')) {
+      try { f = await comprimirImagen(f, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir, subiendo original'); }
+    }
+    const fname = `cuadro-${Date.now()}.jpg`;
+    const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
+    if (!ue) {
+      const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
+      document.getElementById('tf-img').value = ud.publicUrl;
+    }
   }
-  const fname = `cuadro-${Date.now()}.jpg`;
-  const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
-  if (!ue) {
-    const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
-    document.getElementById('tf-img').value = ud.publicUrl;
-  }
-}
-  const tams = ['15x15','20x20','personalizado'].filter(t=>document.getElementById(`tf-tam-${t}`)?.checked);
   const datos = {
     nombre: document.getElementById('tf-nom').value,
     codigo_id: document.getElementById('tf-cod').value,
-    descripcion: document.getElementById('tf-desc').value||null,
-    tamanios_disponibles: tams,
-    imagen_url: document.getElementById('tf-img').value||null,
+    descripcion: document.getElementById('tf-desc').value || null,
+    imagen_url: document.getElementById('tf-img').value || null,
   };
   let err;
-  if (id) ({ error:err } = await DB.from('tipos_cuadro').update(datos).eq('id',id));
+  if (id) ({ error:err } = await DB.from('tipos_cuadro').update(datos).eq('id', id));
   else ({ error:err } = await DB.from('tipos_cuadro').insert(datos));
-  if (err) { alert('Error: '+err.message); return; }
-  document.getElementById('form-tipo-inline').style.display='none';
+  if (err) { alert('Error: ' + err.message); return; }
+  document.getElementById('form-tipo-inline').style.display = 'none';
   renderCatalogo(document.getElementById('adm-main'));
 }
 
