@@ -826,7 +826,7 @@ function renderCarritoContent() {
 
     ${hayEncargos ? `
       <div style="background:#fff8e1;border-left:3px solid #f9a825;padding:12px 16px;border-radius:0 var(--r) var(--r) 0;margin-bottom:24px;font-size:.88rem">
-        ⏳ Tu carrito incluye cuadros por encargo. Tiempo estimado de pintado: 2-4 semanas.
+        ⏳ Tu carrito incluye cuadros por encargo. Tiempo estimado de pintado: 1-2 semanas.
       </div>
     ` : ''}
 
@@ -3823,17 +3823,17 @@ async function renderPrecios(main) {
             <td>
               <div style="display:flex;gap:8px;align-items:center">
                 <input type="number" class="fi" id="pw-${tam}" value="${pwPrecio}" style="width:130px;padding:6px 10px"/>
-                <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem" onclick="guardarPrecioWeb('${tam}')">💾</button>
+                <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem" onclick="guardarPrecioWeb('${tam}')">Guardar</button>
               </div>
             </td>
             <td>
               <div style="display:flex;gap:8px;align-items:center">
                 <input type="number" class="fi" id="pc-${tam}" value="${pcPrecio}" style="width:130px;padding:6px 10px"/>
-                <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem" onclick="guardarPrecioConsig('${tam}')">💾</button>
+                <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem" onclick="guardarPrecioConsig('${tam}')">Guardar</button>
               </div>
             </td>
             <td style="text-align:right">
-              <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem;color:#c62828;border-color:#c62828" onclick="eliminarTamanio('${tam}')">🗑️</button>
+              <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem;color:#c62828;border-color:#c62828" onclick="eliminarTamanio('${tam}')">Eliminar</button>
             </td>
           </tr>`;
         }).join('')}
