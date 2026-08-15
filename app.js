@@ -1101,12 +1101,27 @@ async function rollbackPedido(pedidoId) {
 
 function enviarEmailCarrito(pedido, numeroPedido) {
   try {
-    const items = CARRITO.map(i => `- ${i.cantidad}x ${i.tipoNombre} (${i.tipoCodigo}) - ${i.tamanio} ${i.tipo==='encargo'?'[ENCARGO]':''} - $${Number(i.precio*i.cantidad).toLocaleString('es-AR')}`).join('\n');
+    const items = CARRITO.map(i => {
+      const modif = i.modificaciones ? `\n    ✏️ Modificaciones: ${i.modificaciones}` : '';
+      return `- ${i.cantidad}x ${i.tipoNombre} (${i.tipoCodigo}) - ${i.tamanio} ${i.tipo === 'encargo' ? '[ENCARGO]' : ''} - $${Number(i.precio * i.cantidad).toLocaleString('es-AR')}${modif}`;
+    }).join('\n');
+
     const total = totalCarrito();
     const metodoPago = CHECKOUT.pago === 'efectivo' ? 'Efectivo o transferencia' : 'MercadoPago';
+
+    // Resumen de modificaciones para destacar arriba del mail
+    const cuadrosConModif = CARRITO.filter(i => i.modificaciones);
+    let seccionModif = '';
+    if (cuadrosConModif.length > 0) {
+      seccionModif = `\n===== ✏️ PERSONALIZACIONES =====\n`
+        + cuadrosConModif.map(i => `• ${i.tipoNombre} (${i.tamanio}):\n  ${i.modificaciones}`).join('\n\n')
+        + `\n================================\n\n`;
+    }
+
     const mensaje = `Hola ${CHECKOUT.nombre},\n\n`
       + `¡Recibimos tu pedido en Immi Taller! 🙏\n\n`
-      + `N° de pedido: ${numeroPedido}\n\n`
+      + `N° de pedido: ${numeroPedido}\n`
+      + seccionModif
       + `DETALLE:\n${items}\n\n`
       + `TOTAL: $${Number(total).toLocaleString('es-AR')}\n`
       + `Forma de pago: ${metodoPago}\n`
@@ -1114,17 +1129,19 @@ function enviarEmailCarrito(pedido, numeroPedido) {
       + `Teléfono: ${CHECKOUT.tel || 'No indicado'}\n\n`
       + `Pronto nos contactaremos con vos para coordinar la entrega.\n\n`
       + `¡Gracias por elegir Immi Taller!\n— Pao Navedo`;
-    enviarEmail(`🛒 Pedido - ${CHECKOUT.nombre}`, mensaje, CHECKOUT.email, {
+
+    enviarEmail(`Pedido - ${CHECKOUT.nombre}`, mensaje, CHECKOUT.email, {
       cliente_nombre: CHECKOUT.nombre,
       cliente_email: CHECKOUT.email,
       cliente_telefono: CHECKOUT.tel || '',
       numero_pedido: numeroPedido,
       cuadro: items,
       tamanio: '',
-      precio: '$'+Number(total).toLocaleString('es-AR'),
+      precio: '$' + Number(total).toLocaleString('es-AR'),
       zona: CHECKOUT.zona,
       metodo_pago: metodoPago,
       tipo_pedido: 'Carrito',
+      descripcion: cuadrosConModif.length > 0 ? cuadrosConModif.map(i => `${i.tipoNombre}: ${i.modificaciones}`).join(' | ') : '',
     });
   } catch (e) {
     console.warn('Error email:', e);
