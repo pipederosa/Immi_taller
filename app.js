@@ -257,7 +257,6 @@ let FILTRO_ARCH_BUSQ = '';
 let FILTRO_LUGARES = [];
 let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pago:null };
 let CARRITO = [];
-let PRECIOS_ENCARGADO = {};
 
 // Comprimir imagen en el navegador antes de subir
 async function comprimirImagen(file, maxDim = 1200, calidad = 0.82) {
@@ -406,7 +405,6 @@ async function cargarConfig() {
   if (cfg) cfg.forEach(r => CFG[r.clave] = r.valor);
   if (pre) pre.forEach(r => {
     PRECIOS[r.tamanio] = Number(r.precio);
-    PRECIOS_ENCARGADO[r.tamanio] = Number(r.precio_encargado || r.precio);
   });
 }
 
@@ -551,7 +549,7 @@ function renderDetalle() {
   const hayConsig = enCons.length > 0;
 
   const precioStock = PRECIOS[DETALLE_TAM] || 0;
-  const precioEncargo = PRECIOS_ENCARGADO[DETALLE_TAM] || 0;
+  const precioEncargo = PRECIOS[DETALLE_TAM] || 0;
   const precioMostrar = hayStock ? precioStock : precioEncargo;
   const esEncargo = !hayStock;
 
@@ -662,7 +660,7 @@ function agregarDetalleAlCarrito() {
   if (!t) return;
   const enStock = t.unidades.filter(u => u.estado === 'stock' && u.tamanio === DETALLE_TAM);
   const hayStock = enStock.length > 0;
-  const precio = hayStock ? (PRECIOS[DETALLE_TAM] || 0) : (PRECIOS_ENCARGADO[DETALLE_TAM] || 0);
+  const precio = PRECIOS[DETALLE_TAM] || 0;
 
   if (precio <= 0) {
     alert('Este tamaño no tiene precio configurado todavía. Contactanos por WhatsApp.');
