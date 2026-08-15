@@ -529,10 +529,9 @@ async function cargarDetalle() {
   if (!tipo) { document.getElementById('detalle-content').innerHTML = '<p style="text-align:center;padding:60px">Cuadro no encontrado.</p><div style="text-align:center"><button class="btn btn-p" onclick="ir(\'archivo\')">Volver al archivo</button></div>'; return; }
 
   DETALLE_TIPO = { ...tipo, unidades: unidades || [] };
-  // Tamaño por defecto: el primero disponible en stock, sino el primero del catálogo
-  const tamsCatalogo = tipo.tamanios_disponibles || ['15x15','20x20'];
-  const tamsConStock = [...new Set((unidades||[]).filter(u=>u.estado==='stock').map(u=>u.tamanio))];
-  DETALLE_TAM = tamsConStock[0] || tamsCatalogo[0];
+  // Tamaño por defecto: el primero de los tamaños configurados globalmente
+  const tamsCatalogo = Object.keys(PRECIOS).filter(t => t !== 'personalizado');
+  DETALLE_TAM = tamsCatalogo[0] || '';
   DETALLE_CANT = 1;
 
   renderDetalle();
@@ -541,8 +540,7 @@ async function cargarDetalle() {
 function renderDetalle() {
   const t = DETALLE_TIPO;
   if (!t) return;
-
-  const tamsCatalogo = (t.tamanios_disponibles || ['15x15','20x20']).filter(x => x !== 'personalizado');
+  const tamsCatalogo = Object.keys(PRECIOS).filter(x => x !== 'personalizado');
   const enStock = t.unidades.filter(u => u.estado === 'stock' && u.tamanio === DETALLE_TAM);
   const enCons = t.unidades.filter(u => u.estado === 'consignacion' && u.tamanio === DETALLE_TAM);
   const hayStock = enStock.length > 0;
@@ -1967,7 +1965,7 @@ function selTam(t) {
 function renderSelTamanio(panel) {
   setStepper(2);
   const tipo = COMPRA.tipoCuadro;
-  const tams = tipo?.tamanios_disponibles||['15x15','20x20'];
+  const tams = Object.keys(PRECIOS).filter(t => t !== 'personalizado');
   panel.innerHTML = `<h3 style="font-family:var(--display);font-size:2rem;margin-bottom:8px">Elegí el tamaño</h3>
   <p style="margin-bottom:24px">Para <em>${tipo?.nombre||'este cuadro'}</em></p>
   <div class="tam-grid">${tams.map(t=>`
@@ -2717,7 +2715,7 @@ async function renderCatalogo(main) {
       <div class="tipo-info">
         <span class="tipo-cod">${t.codigo_id}</span>
         <div class="tipo-nom">${t.nombre}</div>
-        <p style="font-size:.82rem;margin-top:4px">Tamaños: ${(t.tamanios_disponibles||[]).join(', ')||'—'}</p>
+        <p style="font-size:.82rem;margin-top:4px">Tamaños: ${Object.keys(PRECIOS).filter(x=>x!=='personalizado').join(', ')||'—'}</p>
         ${t.descripcion?`<p style="font-size:.82rem;margin-top:4px">${t.descripcion}</p>`:''}
       </div>
       <div class="tipo-acc" style="display:flex;gap:8px">
