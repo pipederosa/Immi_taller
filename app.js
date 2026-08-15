@@ -3869,7 +3869,7 @@ async function guardarPrecioConsig(tam) {
   if (error) alert('Error: ' + error.message);
   else renderPrecios(document.getElementById('adm-main'));
 }
-}
+
 async function guardarPrecioEncargado(tam) {
   const v = document.getElementById(`pe-${tam}`)?.value;
   const { error } = await DB.from('precios').update({ precio_encargado: Number(v), updated_at: new Date() }).eq('tamanio', tam);
