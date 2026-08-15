@@ -1312,9 +1312,7 @@ function htmlPersoPaso2() {
     <label class="fl">Tamaño deseado</label>
     <select class="fs" id="ps-tam">
       <option value="">Seleccioná</option>
-      <option value="13x18" ${PERSO.tamanio==='13x18'?'selected':''}>13x18 cm</option>
-      <option value="15x15" ${PERSO.tamanio==='15x15'?'selected':''}>15x15 cm</option>
-      <option value="20x20" ${PERSO.tamanio==='20x20'?'selected':''}>20x20 cm</option>
+      ${Object.keys(PRECIOS).filter(t=>t!=='personalizado').sort((a,b)=>{const nA=parseInt((a.match(/\d+/)||['0'])[0],10);const nB=parseInt((b.match(/\d+/)||['0'])[0],10);return nA-nB;}).map(t=>`<option value="${t}" ${PERSO.tamanio===t?'selected':''}>${t} cm</option>`).join('')}
       <option value="otro" ${PERSO.tamanio==='otro'?'selected':''}>Otro (a coordinar)</option>
     </select>
   </div>
@@ -2886,7 +2884,7 @@ async function renderStock(main) {
       ${htmlCustomSelectCuadros('c-tipo-id', tipos, 'null')}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option><option value="13x18">13x18</option><option value="15x15">15x15</option><option value="20x20">20x20</option><option value="personalizado">Personalizado</option></select></div>
+      <div class="fg"><label class="fl">Tamaño *</label><select class="fs" id="c-tam"><option value="">Seleccioná</option>${Object.keys(PRECIOS).filter(t=>t!=='personalizado').sort((a,b)=>{const nA=parseInt((a.match(/\d+/)||['0'])[0],10);const nB=parseInt((b.match(/\d+/)||['0'])[0],10);return nA-nB;}).map(t=>`<option value="${t}">${t}</option>`).join('')}<option value="personalizado">Personalizado</option></select></div>
       <div class="fg"><label class="fl">Técnica</label><select class="fs" id="c-tec"><option value="">Sin especif.</option><option value="acrilico">Acrílico</option><option value="oleo">Óleo</option><option value="acuarela">Acuarela</option></select></div>
       <div class="fg"><label class="fl">Cantidad *</label><input class="fi" type="number" id="c-cant" value="1" min="1"/></div>
       <div class="fg"><label class="fl">Destino *</label>
