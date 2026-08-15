@@ -1,4 +1,4 @@
-// ============================================================
+  // ============================================================
 // IMMI TALLER - APP.JS
 // ============================================================
 
@@ -797,7 +797,8 @@ function renderCarritoContent() {
               ${item.tipo==='encargo'?'<span class="tag-encargo">Encargo</span>':''}
             </div>
             <div class="carrito-item-meta">${item.tipoCodigo} · ${item.tamanio}</div>
-            <div class="carrito-item-precio">$${Number(item.precio).toLocaleString('es-AR')}</div>
+            ${item.modificaciones ? `<div style="font-size:.78rem;color:#5d4037;background:#fff8e1;padding:6px 10px;border-radius:6px;margin-top:6px;border-left:2px solid #f9a825"><strong>✏️ Modificaciones:</strong> ${item.modificaciones}</div>` : ''}
+            <div class="carrito-item-precio" style="margin-top:6px">$${Number(item.precio).toLocaleString('es-AR')}</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-end">
             <div class="carrito-cant">
@@ -900,10 +901,11 @@ function renderCheckout() {
           <h4 style="font-family:var(--display);font-size:1.3rem;margin-bottom:16px">Tu pedido</h4>
           ${CARRITO.map(i => `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--lino-osc);font-size:.88rem;gap:8px">
-              <div>
+              <div style="flex:1">
                 <strong>${i.tipoNombre}</strong>
                 ${i.tipo==='encargo'?'<span class="tag-encargo">Encargo</span>':''}
                 <br><span style="color:var(--suave);font-size:.78rem">${i.tamanio} · x${i.cantidad}</span>
+                ${i.modificaciones ? `<div style="font-size:.72rem;color:#5d4037;margin-top:4px;font-style:italic">✏️ ${i.modificaciones}</div>` : ''}
               </div>
               <span>$${Number(i.precio * i.cantidad).toLocaleString('es-AR')}</span>
             </div>
@@ -951,7 +953,7 @@ async function confirmarCheckout() {
   btn.textContent = 'Procesando...';
 
   // Construir descripción del pedido con todos los items
-  const itemsDesc = CARRITO.map(i => `${i.cantidad}x ${i.tipoNombre} (${i.tamanio})${i.tipo==='encargo'?' [ENCARGO]':''}`).join(' | ');
+  const itemsDesc = CARRITO.map(i => `${i.cantidad}x ${i.tipoNombre} (${i.tamanio})${i.tipo==='encargo'?' [ENCARGO]':''}${i.modificaciones?` - MODIF: ${i.modificaciones}`:''}`).join(' | ');
   const total = totalCarrito();
   const numeroPedido = 'PED-' + Date.now();
 
@@ -975,6 +977,7 @@ async function confirmarCheckout() {
     tamanio: CARRITO.length === 1 ? CARRITO[0].tamanio : null,
     precio_total: total,
     descripcion_personalizado: `CARRITO:\n${itemsDesc}`,
+    modificaciones: CARRITO.filter(i => i.modificaciones).map(i => `${i.tipoNombre} (${i.tamanio}): ${i.modificaciones}`).join('\n\n') || null,
     imagen_referencia_url: null,
   };
 
@@ -1024,6 +1027,7 @@ async function confirmarCheckout() {
         precio_venta: item.precio,
         cobrado: false,
         entregado: false,
+        modificaciones: item.modificaciones || null,
       });
     }
   }
