@@ -534,7 +534,13 @@ async function cargarDetalle() {
 
   DETALLE_TIPO = { ...tipo, unidades: unidades || [] };
   // Tamaño por defecto: el primero de los tamaños configurados globalmente
-  const tamsCatalogo = Object.keys(PRECIOS).filter(t => t !== 'personalizado');
+  const tamsCatalogo = Object.keys(PRECIOS)
+  .filter(x => x !== 'personalizado')
+  .sort((a, b) => {
+    const numA = parseInt((a.match(/\d+/) || ['0'])[0], 10);
+    const numB = parseInt((b.match(/\d+/) || ['0'])[0], 10);
+    return numA - numB;
+  });
   DETALLE_TAM = tamsCatalogo[0] || '';
   DETALLE_CANT = 1;
 
@@ -545,7 +551,13 @@ function renderDetalle() {
   const t = DETALLE_TIPO;
   if (!t) return;
 
-  const tamsCatalogo = Object.keys(PRECIOS).filter(x => x !== 'personalizado');
+  const tamsCatalogo = Object.keys(PRECIOS)
+  .filter(x => x !== 'personalizado')
+  .sort((a, b) => {
+    const numA = parseInt((a.match(/\d+/) || ['0'])[0], 10);
+    const numB = parseInt((b.match(/\d+/) || ['0'])[0], 10);
+    return numA - numB;
+  });
   const enCons = t.unidades.filter(u => u.estado === 'consignacion' && u.tamanio === DETALLE_TAM);
   const hayConsig = enCons.length > 0;
 
@@ -3759,12 +3771,13 @@ async function renderPrecios(main) {
   (pw||[]).forEach(p => tamanios.add(p.tamanio));
   (pc||[]).forEach(p => tamanios.add(p.tamanio));
   const tamsSorted = [...tamanios].sort((a, b) => {
-    // "personalizado" al final
-    if (a === 'personalizado') return 1;
-    if (b === 'personalizado') return -1;
-    return a.localeCompare(b);
-  });
-
+  // "personalizado" al final
+  if (a === 'personalizado') return 1;
+  if (b === 'personalizado') return -1;
+  const numA = parseInt((a.match(/\d+/) || ['0'])[0], 10);
+  const numB = parseInt((b.match(/\d+/) || ['0'])[0], 10);
+  return numA - numB;
+});
   // Índices rápidos para lookup
   const pwMap = Object.fromEntries((pw||[]).map(p => [p.tamanio, p]));
   const pcMap = Object.fromEntries((pc||[]).map(p => [p.tamanio, p]));
