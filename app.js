@@ -252,7 +252,6 @@ let PRECIOS = {};
 let PAGINA = 'home';
 let TIPOS_CACHE = [];
 let ARCHIVO_DATA = [];
-let FILTRO_ARCH = 'todos';
 let FILTRO_ARCH_BUSQ = '';
 let FILTRO_LUGARES = [];
 let COMPRA = { paso:1, tamanio:null, tipo:null, tipoCuadro:null, unidad:null, pago:null };
@@ -1713,8 +1712,6 @@ function htmlArchivo() {
 
     <div class="filtros" style="align-items:center">
   <input type="text" class="fi" id="busq-archivo" placeholder="🔍 Buscar cuadro por nombre o código..." style="flex:1;min-width:200px;max-width:320px;padding:10px 14px" oninput="FILTRO_ARCH_BUSQ=this.value;renderArchivo()"/>
-  <button class="f-btn on" onclick="setFiltroArch(this,'todos')">Todos</button>
-  <button class="f-btn" onclick="setFiltroArch(this,'disponibles')">Disponibles</button>
   <div style="position:relative">
     <button class="f-btn" onclick="toggleDropdownLugares()" id="btn-drop-lugares">📍 Origen <span id="lugares-count"></span> ▾</button>
     <div id="drop-lugares" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);box-shadow:var(--sombra-m);min-width:240px;max-height:300px;overflow-y:auto;z-index:100;padding:8px 0">
@@ -1741,11 +1738,6 @@ function htmlArchivo() {
 
   </div></div>
   ${htmlFooter()}`;
-}
-
-function setFiltroArch(btn, f) {
-  document.querySelectorAll('.f-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); FILTRO_ARCH=f; renderArchivo();
 }
 
 function toggleDropdownLugares() {
@@ -1799,10 +1791,10 @@ async function cargarArchivo() {
   const drop = document.getElementById('drop-lugares-content');
   if (drop) {
     let opciones = `
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s;border-bottom:1px solid var(--lino-osc);margin-bottom:4px" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
-        <input type="checkbox" value="web" onchange="toggleLugarFiltro(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
-        🌐 Web (stock propio)
-      </label>`;
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s;border-bottom:1px solid var(--lino-osc);margin-bottom:4px" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" value="web" onchange="toggleLugarFiltro(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
+      🌐 Web (encargo)
+    </label>`;
     opciones += (todosLugares||[]).map(l => `
       <label style="display:flex;align-items:center;gap:8px;padding:6px 16px;cursor:pointer;font-size:.88rem;transition:background .2s" onmouseover="this.style.background='var(--lino)'" onmouseout="this.style.background='transparent'">
         <input type="checkbox" value="${l.id}" onchange="toggleLugarFiltro(this)" style="width:16px;height:16px;accent-color:var(--oro);cursor:pointer"/>
@@ -1817,6 +1809,8 @@ async function cargarArchivo() {
 
 function renderArchivo() {
   let data = ARCHIVO_DATA;
+
+  // Filtro de búsqueda por nombre o código
   const busq = (FILTRO_ARCH_BUSQ || '').toLowerCase().trim();
   if (busq) {
     data = data.filter(t =>
@@ -1824,52 +1818,46 @@ function renderArchivo() {
       (t.codigo_id || '').toLowerCase().includes(busq)
     );
   }
-  const filtroDispActivo = FILTRO_ARCH === 'disponibles';
+
+  // Filtro de origen: si eligió "web" muestra todos (porque todos son web encargo). Si eligió lugares específicos, filtra por consignación en ese lugar.
   const filtroLugarActivo = FILTRO_LUGARES.length > 0;
-
-  if (filtroDispActivo) {
-    data = data.filter(t => t.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion'));
-  }
-
   if (filtroLugarActivo) {
     const incluyeWeb = FILTRO_LUGARES.includes('web');
     const lugaresEspecificos = FILTRO_LUGARES.filter(x => x !== 'web');
     data = data.filter(t => {
-      const tieneStockWeb = incluyeWeb && t.unidades.some(u => u.estado === 'stock');
-      const enLugarSeleccionado = lugaresEspecificos.length > 0 && t.unidades.some(u => u.estado === 'consignacion' && lugaresEspecificos.includes(u.lugares?.id));
-      return tieneStockWeb || enLugarSeleccionado;
+      // Web (encargo): todos los cuadros aplican
+      if (incluyeWeb) return true;
+      // Solo lugares específicos: filtrar por cuadros en consignación en esos lugares
+      return lugaresEspecificos.length > 0 && t.unidades.some(u => u.estado === 'consignacion' && lugaresEspecificos.includes(u.lugares?.id));
     });
   }
 
-  // Ordenar: disponibles primero
-  data = [...data].sort((a, b) => {
-    const aDisp = a.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
-    const bDisp = b.unidades.some(u => u.estado === 'stock' || u.estado === 'consignacion') ? 0 : 1;
-    return aDisp - bDisp;
-  });
+  // Ordenar alfabéticamente por nombre
+  data = [...data].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
 
   const grid = document.getElementById('archivo-grid');
   if (!grid) return;
-  if (data.length===0) { grid.innerHTML='<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>'; return; }
+  if (data.length === 0) {
+    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--suave);padding:40px">No hay cuadros con ese filtro.</p>';
+    return;
+  }
 
   grid.innerHTML = data.map(t => {
-    const enS = t.unidades.filter(u=>u.estado==='stock');
-    const enC = t.unidades.filter(u=>u.estado==='consignacion');
-    const sinDispo = enS.length===0 && enC.length===0;
+    const enC = t.unidades.filter(u => u.estado === 'consignacion');
     const porLugar = {};
-    enC.forEach(u => { const n = u.lugares?.nombre || 'Sin nombre'; porLugar[n] = (porLugar[n]||0) + 1; });
+    enC.forEach(u => {
+      const n = u.lugares?.nombre || 'Sin nombre';
+      porLugar[n] = (porLugar[n] || 0) + 1;
+    });
 
     return `<div class="tipo-card" data-tipo-id="${t.id}" style="cursor:pointer">
       <div class="tipo-img">
-        ${t.imagen_url?`<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}
-        ${sinDispo?'<div class="tipo-sin-stock">Sin stock - por Encargo</div>':''}
+        ${t.imagen_url ? `<img src="${t.imagen_url}" alt="${t.nombre}" loading="lazy"/>` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;opacity:.2">✝</div>'}
       </div>
       <div class="tipo-info">
         <span class="tipo-cod">${t.codigo_id}</span>
         <div class="tipo-nom">${t.nombre}</div>
-        ${enS.length?`<div class="tipo-stock-row"><span class="badge b-stock">En stock</span><span style="color:var(--suave)">${enS.length} disponible${enS.length!==1?'s':''}</span></div>`:''}
-        ${Object.entries(porLugar).map(([lugar,cant])=>`<div class="tipo-stock-row"><span class="badge b-cons">Consignación</span><span style="color:var(--suave)">${cant} en ${lugar}</span></div>`).join('')}
-        ${sinDispo?'<p style="font-size:.82rem;color:var(--suave);margin-top:4px">Disponible bajo encargo</p>':''}
+        ${Object.entries(porLugar).map(([lugar, cant]) => `<div class="tipo-stock-row"><span class="badge b-cons">Consignación</span><span style="color:var(--suave)">${cant} en ${lugar}</span></div>`).join('')}
       </div>
       <div class="tipo-acc">
         <button class="btn btn-p" onclick="event.stopPropagation();ir('detalle?id=${t.id}')">Ver cuadro</button>
