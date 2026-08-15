@@ -3731,58 +3731,124 @@ async function renderPrecios(main) {
     DB.from('precios').select('*').order('tamanio'),
     DB.from('precios_consignacion').select('*').order('tamanio'),
   ]);
-  main.innerHTML=`
+
+  // Combinar todos los tamaños que existen en cualquiera de las 2 tablas
+  const tamanios = new Set();
+  (pw||[]).forEach(p => tamanios.add(p.tamanio));
+  (pc||[]).forEach(p => tamanios.add(p.tamanio));
+  const tamsSorted = [...tamanios].sort((a, b) => {
+    // "personalizado" al final
+    if (a === 'personalizado') return 1;
+    if (b === 'personalizado') return -1;
+    return a.localeCompare(b);
+  });
+
+  // Índices rápidos para lookup
+  const pwMap = Object.fromEntries((pw||[]).map(p => [p.tamanio, p]));
+  const pcMap = Object.fromEntries((pc||[]).map(p => [p.tamanio, p]));
+
+  main.innerHTML = `
   <div class="adm-hdr"><h1>Precios</h1></div>
-  <p style="color:var(--suave);margin-bottom:24px;max-width:780px">Configurá los precios según el tipo de venta. Los <strong>precios web</strong> son para los cuadros que ya tenés en stock. Los <strong>precios encargado</strong> son para cuadros que pintás a pedido (lleva más tiempo, suele ser un poco más caro). Los <strong>precios consignación</strong> son lo que te paga el lugar cuando se vende ahí.</p>
+  <p style="color:var(--suave);margin-bottom:24px;max-width:780px">Configurá los tamaños de cuadros disponibles y sus precios. Los <strong>precios web</strong> son los que ve el cliente en la página. Los <strong>precios consignación</strong> son lo que te paga el lugar cuando se vende ahí.</p>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;max-width:1100px">
-    <!-- WEB / STOCK -->
-    <div>
-      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">💰 Precios web (stock)</h3>
-      <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Cuadros disponibles para entrega inmediata</p>
-      ${(pw||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
-        <div class="stat-l">${p.tamanio}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <div class="stat-v" style="font-size:1.2rem">$${Number(p.precio).toLocaleString('es-AR')}</div>
-          <input type="number" class="fi" id="pw-${p.tamanio}" value="${p.precio}" style="width:110px;padding:8px 10px"/>
-          <button class="btn btn-g" style="padding:8px 12px;font-size:.72rem" onclick="guardarPrecioWeb('${p.tamanio}')">Guardar</button>
-        </div>
-      </div>`).join('')}
+  <!-- FORM PARA CREAR TAMAÑO NUEVO -->
+  <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:24px;margin-bottom:32px;max-width:780px">
+    <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:16px">➕ Agregar tamaño nuevo</h3>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Nombre del tamaño</label>
+        <input type="text" class="fi" id="nuevo-tam-nom" placeholder="Ej: 30x40"/>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Precio web ($)</label>
+        <input type="number" class="fi" id="nuevo-tam-web" placeholder="0"/>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Precio consig. ($)</label>
+        <input type="number" class="fi" id="nuevo-tam-cons" placeholder="0"/>
+      </div>
+      <button class="btn btn-p" onclick="agregarTamanio()" style="height:44px">Agregar</button>
     </div>
+  </div>
 
-    <!-- ENCARGADO -->
-    <div>
-      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">📝 Precios encargado</h3>
-      <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Cuadros pintados a pedido (sin stock)</p>
-      ${(pw||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
-        <div class="stat-l">${p.tamanio}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <div class="stat-v" style="font-size:1.2rem">$${Number(p.precio_encargado||0).toLocaleString('es-AR')}</div>
-          <input type="number" class="fi" id="pe-${p.tamanio}" value="${p.precio_encargado||0}" style="width:110px;padding:8px 10px"/>
-          <button class="btn btn-g" style="padding:8px 12px;font-size:.72rem" onclick="guardarPrecioEncargado('${p.tamanio}')">Guardar</button>
-        </div>
-      </div>`).join('')}
-    </div>
+  <!-- LISTA DE TAMAÑOS EXISTENTES -->
+  <h3 style="font-family:var(--display);font-size:1.4rem;margin-bottom:16px">Tamaños configurados</h3>
+  ${tamsSorted.length === 0 ? '<p style="color:var(--suave);text-align:center;padding:40px">No hay tamaños configurados todavía. Agregá uno arriba.</p>' : `
+  <div class="tbl-wrap" style="max-width:780px">
+    <table>
+      <thead>
+        <tr><th>Tamaño</th><th>Precio web ($)</th><th>Precio consignación ($)</th><th></th></tr>
+      </thead>
+      <tbody>
+        ${tamsSorted.map(tam => {
+          const pwPrecio = pwMap[tam]?.precio || 0;
+          const pcPrecio = pcMap[tam]?.precio || 0;
+          return `<tr>
+            <td><strong style="font-family:var(--display);font-size:1.1rem">${tam}</strong></td>
+            <td>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="number" class="fi" id="pw-${tam}" value="${pwPrecio}" style="width:130px;padding:6px 10px"/>
+                <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem" onclick="guardarPrecioWeb('${tam}')">💾</button>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="number" class="fi" id="pc-${tam}" value="${pcPrecio}" style="width:130px;padding:6px 10px"/>
+                <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem" onclick="guardarPrecioConsig('${tam}')">💾</button>
+              </div>
+            </td>
+            <td style="text-align:right">
+              <button class="btn btn-gh" style="padding:6px 12px;font-size:.72rem;color:#c62828;border-color:#c62828" onclick="eliminarTamanio('${tam}')">🗑️</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`}`;
+}
 
-    <!-- CONSIGNACIÓN -->
-    <div>
-      <h3 style="font-family:var(--display);font-size:1.3rem;margin-bottom:4px">⛪ Precios consignación</h3>
-      <p style="font-size:.78rem;color:var(--suave);margin-bottom:16px">Lo que te paga el lugar por cuadro vendido</p>
-      ${(pc||[]).filter(p => p.tamanio !== 'personalizado').map(p => `<div class="stat" style="margin-bottom:12px;text-align:left">
-        <div class="stat-l">${p.tamanio}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <div class="stat-v" style="font-size:1.2rem">$${Number(p.precio).toLocaleString('es-AR')}</div>
-          <input type="number" class="fi" id="pc-${p.tamanio}" value="${p.precio}" style="width:110px;padding:8px 10px"/>
-          <button class="btn btn-g" style="padding:8px 12px;font-size:.72rem" onclick="guardarPrecioConsig('${p.tamanio}')">Guardar</button>
-        </div>
-      </div>`).join('')}
-    </div>
-  </div>`;
+async function agregarTamanio() {
+  const nom = document.getElementById('nuevo-tam-nom').value.trim();
+  const pw = Number(document.getElementById('nuevo-tam-web').value) || 0;
+  const pc = Number(document.getElementById('nuevo-tam-cons').value) || 0;
+
+  if (!nom) { alert('Ingresá el nombre del tamaño.'); return; }
+
+  // Verificar que no exista
+  const { data:existe } = await DB.from('precios').select('tamanio').eq('tamanio', nom).maybeSingle();
+  if (existe) { alert('Ya existe un tamaño con ese nombre.'); return; }
+
+  // Insertar en las dos tablas
+  const { error:e1 } = await DB.from('precios').insert({ tamanio: nom, precio: pw });
+  if (e1) { alert('Error: ' + e1.message); return; }
+  const { error:e2 } = await DB.from('precios_consignacion').insert({ tamanio: nom, precio: pc });
+  if (e2) { alert('Error consignación: ' + e2.message); return; }
+
+  await cargarConfig();
+  renderPrecios(document.getElementById('adm-main'));
+}
+
+async function eliminarTamanio(tam) {
+  if (!confirm(`¿Eliminar el tamaño "${tam}"?\n\nEsto NO afecta a los cuadros ya cargados con este tamaño en stock/consignación. Solo lo saca de las opciones que puede elegir el cliente al comprar.`)) return;
+
+  await DB.from('precios').delete().eq('tamanio', tam);
+  await DB.from('precios_consignacion').delete().eq('tamanio', tam);
+
+  await cargarConfig();
+  renderPrecios(document.getElementById('adm-main'));
 }
 
 async function guardarPrecioWeb(tam) {
   const v = document.getElementById(`pw-${tam}`)?.value;
-  const { error } = await DB.from('precios').update({ precio: Number(v), updated_at: new Date() }).eq('tamanio', tam);
+  const precio = Number(v) || 0;
+  // Upsert (crear o actualizar según exista)
+  const { data:existe } = await DB.from('precios').select('id').eq('tamanio', tam).maybeSingle();
+  let error;
+  if (existe) {
+    ({ error } = await DB.from('precios').update({ precio, updated_at: new Date() }).eq('tamanio', tam));
+  } else {
+    ({ error } = await DB.from('precios').insert({ tamanio: tam, precio }));
+  }
   if (error) alert('Error: ' + error.message);
   else {
     await cargarConfig();
@@ -3792,11 +3858,17 @@ async function guardarPrecioWeb(tam) {
 
 async function guardarPrecioConsig(tam) {
   const v = document.getElementById(`pc-${tam}`)?.value;
-  const { error } = await DB.from('precios_consignacion').update({ precio: Number(v), updated_at: new Date() }).eq('tamanio', tam);
-  if (error) alert('Error: ' + error.message);
-  else {
-    renderPrecios(document.getElementById('adm-main'));
+  const precio = Number(v) || 0;
+  const { data:existe } = await DB.from('precios_consignacion').select('id').eq('tamanio', tam).maybeSingle();
+  let error;
+  if (existe) {
+    ({ error } = await DB.from('precios_consignacion').update({ precio, updated_at: new Date() }).eq('tamanio', tam));
+  } else {
+    ({ error } = await DB.from('precios_consignacion').insert({ tamanio: tam, precio }));
   }
+  if (error) alert('Error: ' + error.message);
+  else renderPrecios(document.getElementById('adm-main'));
+}
 }
 async function guardarPrecioEncargado(tam) {
   const v = document.getElementById(`pe-${tam}`)?.value;
