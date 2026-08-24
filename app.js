@@ -3529,7 +3529,18 @@ function renderVentasTblContent(data) {
 
   if (filtrados.length === 0) return '<div class="tbl-wrap" style="padding:40px;text-align:center;color:var(--suave)">Sin ventas con esos filtros</div>';
 
-  return `<div class="tbl-wrap"><table><thead><tr>
+  // Calcular totales filtrados
+  const totalFiltrado = filtrados.reduce((s, v) => s + (Number(v.precio_venta) || 0), 0);
+  const totalCobradoFiltrado = filtrados.filter(v => v.cobrado).reduce((s, v) => s + (Number(v.precio_venta) || 0), 0);
+  const totalPendFiltrado = totalFiltrado - totalCobradoFiltrado;
+
+  return `<div style="background:var(--lino);border-radius:var(--rm);padding:14px 18px;margin-bottom:16px;display:flex;gap:24px;flex-wrap:wrap;font-size:.88rem">
+    <div><span style="color:var(--suave)">Cuadros filtrados:</span> <strong>${filtrados.length}</strong></div>
+    <div><span style="color:var(--suave)">Total:</span> <strong>$${Number(totalFiltrado).toLocaleString('es-AR')}</strong></div>
+    <div><span style="color:var(--suave)">Cobrado:</span> <strong style="color:#2e7d32">$${Number(totalCobradoFiltrado).toLocaleString('es-AR')}</strong></div>
+    <div><span style="color:var(--suave)">Pendiente:</span> <strong style="color:#f57f17">$${Number(totalPendFiltrado).toLocaleString('es-AR')}</strong></div>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr>
     <th>Fecha</th><th>Cuadro</th><th>Tamaño</th><th>Canal</th><th>Cliente</th><th>Monto</th><th>Cobrado</th><th>Entregado</th>
   </tr></thead><tbody>
   ${filtrados.map(v=>{
