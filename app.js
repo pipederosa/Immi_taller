@@ -3195,7 +3195,7 @@ async function eliminarUnidad(id) {
 let FILTRO_PED = { busqNum:'', busqCli:'', tipo:'', entregado:'', pago:'' };
 
 async function renderPedidos(main) {
-  const { data } = await DB.from('pedidos').select('*,tipos_cuadro(nombre)').order('created_at',{ascending:false});
+  const { data } = await DB.from('pedidos').select('*,tipos_cuadro(nombre,codigo_id,imagen_url)').order('created_at',{ascending:false});
 
   main.innerHTML=`
   <div class="adm-hdr"><h1>Pedidos web</h1></div>
@@ -3265,7 +3265,17 @@ function renderPedidosTblContent(data) {
       <td style="font-family:var(--display);font-size:.85rem">${p.numero_pedido}</td>
       <td>${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
       <td style="font-size:.82rem">${{stock:'Stock',encargo:'Encargo',mixto:'Mixto',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
-      <td style="font-size:.85rem">${p.tipos_cuadro?.nombre||'—'}${p.descripcion_personalizado?`<br><span style="font-size:.75rem;color:var(--suave);display:block;max-width:160px">${p.descripcion_personalizado}</span>`:''}${p.tamanio?`<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>`:''}</td>
+      <td style="font-size:.85rem">
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          ${p.tipos_cuadro?.imagen_url ? `<img src="${p.tipos_cuadro.imagen_url}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc);cursor:pointer;flex-shrink:0" onclick="window.open('${p.tipos_cuadro.imagen_url}','_blank')"/>` : ''}
+          <div style="min-width:0;flex:1">
+            ${p.tipos_cuadro?.codigo_id ? `<span style="font-size:.72rem;color:var(--oro);letter-spacing:.1em">${p.tipos_cuadro.codigo_id}</span><br>` : ''}
+            <strong>${p.tipos_cuadro?.nombre || '—'}</strong>
+            ${p.tamanio ? `<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>` : ''}
+            ${p.descripcion_personalizado ? `<br><span style="font-size:.72rem;color:var(--suave);display:block">${p.descripcion_personalizado}</span>` : ''}
+          </div>
+        </div>
+      </td>
       <td>${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
       <td style="text-transform:capitalize">${p.metodo_pago||'—'}</td>
       <td>
