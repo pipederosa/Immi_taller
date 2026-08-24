@@ -3250,7 +3250,19 @@ function renderPedidosTblContent(data) {
 
   if (filtrados.length === 0) return '<div class="tbl-wrap" style="padding:40px;text-align:center;color:var(--suave)">No hay pedidos con esos filtros.</div>';
 
-  return `<div class="tbl-wrap"><table><thead><tr><th>N° Pedido</th><th>Cliente</th><th>Tipo</th><th>Cuadro</th><th>Total</th><th>Pago</th><th>Estado</th><th>Entregado</th><th>Ref.</th><th>Fecha</th></tr></thead><tbody>
+  return `<div class="tbl-wrap"><table><thead><tr>
+    <th>N° Pedido</th>
+    <th>Cliente</th>
+    <th>Tipo</th>
+    <th style="min-width:220px">Cuadro</th>
+    <th>Modificaciones</th>
+    <th>Zona</th>
+    <th>Total</th>
+    <th>Pago</th>
+    <th>Estado</th>
+    <th>Entregado</th>
+    <th>Fecha</th>
+  </tr></thead><tbody>
   ${filtrados.map(p=>{
     const estilos = {
       pendiente: 'background:#fff8e1;color:#f57f17;border-color:#f9a825',
@@ -3261,23 +3273,31 @@ function renderPedidosTblContent(data) {
     const entregadoStyle = p.entregado
       ? 'background:#e8f5e9;border:1px solid #43a047;color:#2e7d32;font-weight:600'
       : 'background:transparent;border:1px solid var(--lino-osc);color:var(--suave)';
+
+    // Separar descripción/modificaciones del cuadro base
+    const desc = p.descripcion_personalizado || '';
+    const modif = p.modificaciones || '';
+
     return `<tr>
-      <td style="font-family:var(--display);font-size:.85rem">${p.numero_pedido}</td>
-      <td>${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
-      <td style="font-size:.82rem">${{stock:'Stock',encargo:'Encargo',mixto:'Mixto',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
-      <td style="font-size:.85rem">
-        <div style="display:flex;gap:8px;align-items:flex-start">
-          ${p.tipos_cuadro?.imagen_url ? `<img src="${p.tipos_cuadro.imagen_url}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc);cursor:pointer;flex-shrink:0" onclick="window.open('${p.tipos_cuadro.imagen_url}','_blank')"/>` : ''}
+      <td style="font-family:var(--display);font-size:.85rem;white-space:nowrap">${p.numero_pedido}</td>
+      <td style="min-width:180px">${p.cliente_nombre}<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_email}</span>${p.cliente_telefono?`<br><span style="font-size:.75rem;color:var(--suave)">${p.cliente_telefono}</span>`:''}</td>
+      <td style="font-size:.82rem;white-space:nowrap">${{stock:'Stock',encargo:'Encargo',mixto:'Mixto',personalizado_archivo:'Pers. archivo',personalizado_nuevo:'Pers. nuevo'}[p.tipo]||p.tipo}</td>
+      <td style="font-size:.85rem;min-width:220px">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          ${p.tipos_cuadro?.imagen_url ? `<img src="${p.tipos_cuadro.imagen_url}" style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc);cursor:pointer;flex-shrink:0" onclick="window.open('${p.tipos_cuadro.imagen_url}','_blank')"/>` : ''}
           <div style="min-width:0;flex:1">
-            ${p.tipos_cuadro?.codigo_id ? `<span style="font-size:.72rem;color:var(--oro);letter-spacing:.1em">${p.tipos_cuadro.codigo_id}</span><br>` : ''}
-            <strong>${p.tipos_cuadro?.nombre || '—'}</strong>
-            ${p.tamanio ? `<br><span style="font-size:.75rem;color:var(--suave)">${p.tamanio}</span>` : ''}
-            ${p.descripcion_personalizado ? `<br><span style="font-size:.72rem;color:var(--suave);display:block">${p.descripcion_personalizado}</span>` : ''}
+            ${p.tipos_cuadro?.codigo_id ? `<span style="font-size:.72rem;color:var(--oro);letter-spacing:.1em;font-weight:500">${p.tipos_cuadro.codigo_id}</span><br>` : ''}
+            <strong style="font-size:.9rem">${p.tipos_cuadro?.nombre || '—'}</strong>
+            ${p.tamanio ? `<br><span style="font-size:.78rem;color:var(--suave)">${p.tamanio}</span>` : ''}
           </div>
         </div>
       </td>
-      <td>${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
-      <td style="text-transform:capitalize">${p.metodo_pago||'—'}</td>
+      <td style="font-size:.78rem;color:var(--suave);max-width:260px">
+        ${modif ? `<div style="white-space:pre-wrap;line-height:1.4">${modif}</div>` : (desc ? `<div style="white-space:pre-wrap;line-height:1.4;max-height:80px;overflow-y:auto">${desc}</div>` : '—')}
+      </td>
+      <td style="font-size:.82rem;max-width:140px">${p.zona_envio || '—'}</td>
+      <td style="white-space:nowrap">${p.precio_total?'$'+Number(p.precio_total).toLocaleString('es-AR'):'<span style="color:var(--oro)">A definir</span>'}</td>
+      <td style="text-transform:capitalize;font-size:.82rem">${p.metodo_pago||'—'}</td>
       <td>
         <select onchange="cambiarEstadoPedido('${p.id}',this.value);this.style.cssText='font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;'+(this.value==='pagado'?'background:#e8f5e9;color:#2e7d32;border-color:#43a047':this.value==='cancelado'?'background:#fce4ec;color:#c62828;border-color:#e53935':'background:#fff8e1;color:#f57f17;border-color:#f9a825')"
           style="font-size:.75rem;padding:6px 10px;border:1px solid;border-radius:var(--r);font-weight:600;cursor:pointer;${estilo}">
@@ -3290,14 +3310,13 @@ function renderPedidosTblContent(data) {
           ${p.entregado?'✓ Sí':'No'}
         </label>
       </td>
-      <td>${p.imagen_referencia_url?`<a href="${p.imagen_referencia_url}" target="_blank"><img src="${p.imagen_referencia_url}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--lino-osc)"/></a>`:'—'}</td>
-      <td style="font-size:.8rem">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
+      <td style="font-size:.8rem;white-space:nowrap">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
     </tr>`;
   }).join('')}
   </tbody></table></div>`;
 }
 
-let FILTRO_VTA = { fecha:'', cuadro:'', cliente:'', canal:'', cobrado:'', entregado:'' };
+let FILTRO_VTA = { fecha:'', cuadro:'', tamanio:'', cliente:'', canal:'', cobrado:'', entregado:'' };
 
 async function renderVentas(main) {
   const [{ data:ventas },{ data:lugares }] = await Promise.all([
@@ -3330,6 +3349,11 @@ async function renderVentas(main) {
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
     <input type="date" class="fi" value="${FILTRO_VTA.fecha}" oninput="FILTRO_VTA.fecha=this.value;renderVentasTbl()" title="Filtrar por fecha"/>
     <input type="text" class="fi" placeholder="Cuadro" value="${FILTRO_VTA.cuadro}" oninput="FILTRO_VTA.cuadro=this.value;renderVentasTbl()"/>
+    <select class="fs" onchange="FILTRO_VTA.tamanio=this.value;renderVentasTbl()">
+      <option value="">Todos los tamaños</option>
+      ${Object.keys(PRECIOS).filter(t=>t!=='personalizado').sort((a,b)=>{const nA=parseInt((a.match(/\d+/)||['0'])[0],10);const nB=parseInt((b.match(/\d+/)||['0'])[0],10);return nA-nB;}).map(t=>`<option value="${t}" ${FILTRO_VTA.tamanio===t?'selected':''}>${t}</option>`).join('')}
+      <option value="personalizado" ${FILTRO_VTA.tamanio==='personalizado'?'selected':''}>Personalizado</option>
+    </select>
     <input type="text" class="fi" placeholder="Cliente" value="${FILTRO_VTA.cliente}" oninput="FILTRO_VTA.cliente=this.value;renderVentasTbl()"/>
     <select class="fs" onchange="FILTRO_VTA.canal=this.value;renderVentasTbl()">
       <option value="">Todos los canales</option>
@@ -3517,6 +3541,10 @@ function renderVentasTblContent(data) {
       const nom = (v.unidades_cuadro?.tipos_cuadro?.nombre || '').toLowerCase();
       const cod = (v.unidades_cuadro?.tipos_cuadro?.codigo_id || '').toLowerCase();
       if (!nom.includes(FILTRO_VTA.cuadro.toLowerCase()) && !cod.includes(FILTRO_VTA.cuadro.toLowerCase())) return false;
+    }
+    if (FILTRO_VTA.tamanio) {
+      const tam = v.unidades_cuadro?.tamanio || v.tamanio || '';
+      if (tam !== FILTRO_VTA.tamanio) return false;
     }
     if (FILTRO_VTA.cliente && !(v.cliente_nombre||'').toLowerCase().includes(FILTRO_VTA.cliente.toLowerCase())) return false;
     if (FILTRO_VTA.canal && v.canal !== FILTRO_VTA.canal) return false;
