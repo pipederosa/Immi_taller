@@ -547,6 +547,15 @@ async function cargarDetalle() {
   renderDetalle();
 }
 
+function cambiarImgDetalle(url, el) {
+  const img = document.getElementById('det-img-principal');
+  if (img) img.src = url;
+  // Actualizar borde de las thumbnails
+  const thumbs = el.parentElement.querySelectorAll('img');
+  thumbs.forEach(t => t.style.borderColor = 'transparent');
+  el.style.borderColor = 'var(--oro)';
+}
+
 function renderDetalle() {
   const t = DETALLE_TIPO;
   if (!t) return;
@@ -575,9 +584,23 @@ function renderDetalle() {
     <button onclick="ir('archivo')" class="btn btn-gh" style="margin-bottom:24px">← Volver al archivo</button>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start">
-      <!-- IMAGEN -->
-      <div style="background:var(--lino);border-radius:var(--rm);aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:var(--sombra-m);position:relative">
-        ${t.imagen_url ? `<img src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="abrirLightbox('${t.imagen_url}')"/><button onclick="abrirLightbox('${t.imagen_url}')" title="Ver más grande" style="position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);color:white;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;backdrop-filter:blur(8px);z-index:10;transition:var(--tr)" onmouseover="this.style.background='rgba(0,0,0,.85)';this.style.transform='scale(1.08)'" onmouseout="this.style.background='rgba(0,0,0,.6)';this.style.transform='scale(1)'">🔍</button>` : '<div style="font-size:5rem;opacity:.2">✝</div>'}
+      <!-- IMAGEN + THUMBNAILS -->
+      <div>
+        <div style="background:var(--lino);border-radius:var(--rm);aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:var(--sombra-m);position:relative">
+          ${t.imagen_url ? `<img id="det-img-principal" src="${t.imagen_url}" alt="${t.nombre}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="abrirLightbox(this.src)"/><button onclick="abrirLightbox(document.getElementById('det-img-principal').src)" title="Ver más grande" style="position:absolute;top:16px;right:16px;background:rgba(0,0,0,.6);color:white;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;backdrop-filter:blur(8px);z-index:10;transition:var(--tr)" onmouseover="this.style.background='rgba(0,0,0,.85)';this.style.transform='scale(1.08)'" onmouseout="this.style.background='rgba(0,0,0,.6)';this.style.transform='scale(1)'">🔍</button>` : '<div style="font-size:5rem;opacity:.2">✝</div>'}
+        </div>
+        ${(() => {
+          // Armar galería: principal + extras
+          const galeria = [t.imagen_url, ...((t.imagenes_extra)||[])].filter(Boolean);
+          if (galeria.length <= 1) return '';
+          return `<div style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px">
+            ${galeria.map((url, i) => `
+              <img src="${url}" onclick="cambiarImgDetalle('${url}',this)"
+                style="width:72px;height:72px;object-fit:cover;border-radius:var(--r);cursor:pointer;border:2px solid ${i===0?'var(--oro)':'transparent'};flex-shrink:0;transition:var(--tr)"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'"/>
+            `).join('')}
+          </div>`;
+        })()}
       </div>
 
       <!-- INFO + ACCIONES -->
@@ -2768,10 +2791,18 @@ function abrirFormTipo(t) {
       <div class="fg"><label class="fl">Nombre *</label><input class="fi" id="tf-nom" value="${t?.nombre||''}"/></div>
       <div class="fg"><label class="fl">Código ID *</label><input class="fi" id="tf-cod" value="${t?.codigo_id||''}" placeholder="IMM-001"/></div>
       <div class="fg" style="grid-column:1/-1"><label class="fl">Descripción</label><textarea class="ft" id="tf-desc" style="min-height:80px">${t?.descripcion||''}</textarea></div>
-      <div class="fg" style="grid-column:1/-1"><label class="fl">Imagen del cuadro</label>
+      <div class="fg" style="grid-column:1/-1"><label class="fl">Imagen principal (portada)</label>
         ${t?.imagen_url?`<img src="${t.imagen_url}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r);margin-bottom:8px;display:block"/>`:''}
         <input class="fi" type="file" id="tf-img-file" accept="image/*" style="padding:10px"/>
         <input type="hidden" id="tf-img" value="${t?.imagen_url||''}"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1"><label class="fl">Imágenes adicionales</label>
+        <p style="font-size:.8rem;color:var(--suave);margin-bottom:8px">Fotos extra del cuadro (detalles, otros ángulos, etc.). Podés subir varias.</p>
+        <div id="tf-extras-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          ${((t?.imagenes_extra)||[]).map((url,i)=>`<div style="position:relative"><img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:var(--r);display:block;border:1px solid var(--lino-osc)"/><button type="button" onclick="quitarImgExtra(${i})" style="position:absolute;top:-6px;right:-6px;background:#c62828;color:white;border:none;width:22px;height:22px;border-radius:50%;font-size:.7rem;cursor:pointer;line-height:1">✕</button></div>`).join('')}
+        </div>
+        <input class="fi" type="file" id="tf-extras-file" accept="image/*" multiple style="padding:10px"/>
+        <input type="hidden" id="tf-extras" value='${JSON.stringify((t?.imagenes_extra)||[])}'/>
       </div>
     </div>
     <div style="display:flex;gap:12px;margin-top:8px">
@@ -2781,13 +2812,24 @@ function abrirFormTipo(t) {
   </div>`;
   el.scrollIntoView({behavior:'smooth'});
 }
+
+function quitarImgExtra(index) {
+  const hidden = document.getElementById('tf-extras');
+  const arr = JSON.parse(hidden.value || '[]');
+  arr.splice(index, 1);
+  hidden.value = JSON.stringify(arr);
+  // Re-renderizar preview
+  const preview = document.getElementById('tf-extras-preview');
+  preview.innerHTML = arr.map((url,i)=>`<div style="position:relative"><img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:var(--r);display:block;border:1px solid var(--lino-osc)"/><button type="button" onclick="quitarImgExtra(${i})" style="position:absolute;top:-6px;right:-6px;background:#c62828;color:white;border:none;width:22px;height:22px;border-radius:50%;font-size:.7rem;cursor:pointer;line-height:1">✕</button></div>`).join('');
+}
+
 async function guardarTipo(id) {
+  // Subir imagen principal si hay archivo nuevo
   const fi = document.getElementById('tf-img-file');
   if (fi?.files?.length > 0) {
     let f = fi.files[0];
-    // Comprimir si es imagen
     if (f.type.startsWith('image/')) {
-      try { f = await comprimirImagen(f, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir, subiendo original'); }
+      try { f = await comprimirImagen(f, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir'); }
     }
     const fname = `cuadro-${Date.now()}.jpg`;
     const { error:ue } = await DB.storage.from('cuadros').upload(fname, f, { upsert: true });
@@ -2796,11 +2838,32 @@ async function guardarTipo(id) {
       document.getElementById('tf-img').value = ud.publicUrl;
     }
   }
+
+  // Subir imágenes extra nuevas
+  const fiExtra = document.getElementById('tf-extras-file');
+  const hiddenExtras = document.getElementById('tf-extras');
+  let extrasArr = JSON.parse(hiddenExtras.value || '[]');
+  if (fiExtra?.files?.length > 0) {
+    for (const f of fiExtra.files) {
+      let img = f;
+      if (img.type.startsWith('image/')) {
+        try { img = await comprimirImagen(img, 1200, 0.82); } catch(e) { console.warn('No se pudo comprimir'); }
+      }
+      const fname = `cuadro-extra-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
+      const { error:ue } = await DB.storage.from('cuadros').upload(fname, img, { upsert: true });
+      if (!ue) {
+        const { data:ud } = DB.storage.from('cuadros').getPublicUrl(fname);
+        extrasArr.push(ud.publicUrl);
+      }
+    }
+  }
+
   const datos = {
     nombre: document.getElementById('tf-nom').value,
     codigo_id: document.getElementById('tf-cod').value,
     descripcion: document.getElementById('tf-desc').value || null,
     imagen_url: document.getElementById('tf-img').value || null,
+    imagenes_extra: extrasArr,
   };
   let err;
   if (id) ({ error:err } = await DB.from('tipos_cuadro').update(datos).eq('id', id));
