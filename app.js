@@ -3257,24 +3257,150 @@ async function eliminarUnidad(id) {
 // ---- PEDIDOS WEB ----
 let FILTRO_PED = { busqNum:'', busqCli:'', tipo:'', entregado:'', pago:'' };
 
+function abrirModalPedido() {
+  window._PED_EDIT_ID = null;
+  document.getElementById('modal-ped-titulo').textContent = 'Nuevo pedido';
+  document.getElementById('modal-ped-subt').textContent = 'Cargar pedido manualmente';
+  document.getElementById('ped-btn-elim').style.display = 'none';
+
+  // Resetear campos
+  document.getElementById('ped-num').value = '';
+  document.getElementById('ped-tipo').value = 'stock';
+  document.getElementById('ped-pago-estado').value = 'pendiente';
+  document.getElementById('ped-tipo-cuadro').value = '';
+  document.getElementById('ped-tam').value = '';
+  document.getElementById('ped-precio').value = '';
+  document.getElementById('ped-cli-nom').value = '';
+  document.getElementById('ped-cli-email').value = '';
+  document.getElementById('ped-cli-tel').value = '';
+  document.getElementById('ped-zona').value = '';
+  document.getElementById('ped-metodo').value = '';
+  document.getElementById('ped-modif').value = '';
+  document.getElementById('ped-desc').value = '';
+  document.getElementById('ped-entregado').checked = false;
+
+  document.getElementById('modal-ped-edit').classList.add('on');
+}
+
+function editarPedido(id) {
+  const pedido = (window._PEDIDOS_DATA || []).find(p => p.id === id);
+  if (!pedido) return;
+  window._PED_EDIT_ID = id;
+
+  document.getElementById('modal-ped-titulo').textContent = 'Editar pedido';
+  document.getElementById('modal-ped-subt').textContent = pedido.numero_pedido;
+  document.getElementById('ped-btn-elim').style.display = 'inline-flex';
+
+  document.getElementById('ped-num').value = pedido.numero_pedido || '';
+  document.getElementById('ped-tipo').value = pedido.tipo || 'stock';
+  document.getElementById('ped-pago-estado').value = pedido.estado_pago || 'pendiente';
+  document.getElementById('ped-tipo-cuadro').value = pedido.tipo_cuadro_id || '';
+  document.getElementById('ped-tam').value = pedido.tamanio || '';
+  document.getElementById('ped-precio').value = pedido.precio_total || '';
+  document.getElementById('ped-cli-nom').value = pedido.cliente_nombre || '';
+  document.getElementById('ped-cli-email').value = pedido.cliente_email || '';
+  document.getElementById('ped-cli-tel').value = pedido.cliente_telefono || '';
+  document.getElementById('ped-zona').value = pedido.zona_envio || '';
+  document.getElementById('ped-metodo').value = pedido.metodo_pago || '';
+  document.getElementById('ped-modif').value = pedido.modificaciones || '';
+  document.getElementById('ped-desc').value = pedido.descripcion_personalizado || '';
+  document.getElementById('ped-entregado').checked = !!pedido.entregado;
+
+  document.getElementById('modal-ped-edit').classList.add('on');
+}
+
+async function guardarPedido() {
+  const nom = document.getElementById('ped-cli-nom').value.trim();
+  const email = document.getElementById('ped-cli-email').value.trim();
+  const zona = document.getElementById('ped-zona').value.trim();
+
+  if (!nom || !email || !zona) {
+    alert('Completá los campos obligatorios: nombre, email y zona.');
+    return;
+  }
+
+  const datos = {
+    numero_pedido: document.getElementById('ped-num').value.trim() || ('MAN-' + Date.now()),
+    tipo: document.getElementById('ped-tipo').value,
+    tipo_cuadro_id: document.getElementById('ped-tipo-cuadro').value || null,
+    cliente_nombre: nom,
+    cliente_email: email,
+    cliente_telefono: document.getElementById('ped-cli-tel').value.trim() || null,
+    zona_envio: zona,
+    metodo_pago: document.getElementById('ped-metodo').value || null,
+    tamanio: document.getElementById('ped-tam').value || null,
+    precio_total: Number(document.getElementById('ped-precio').value) || null,
+    estado_pago: document.getElementById('ped-pago-estado').value,
+    entregado: document.getElementById('ped-entregado').checked,
+    modificaciones: document.getElementById('ped-modif').value.trim() || null,
+    descripcion_personalizado: document.getElementById('ped-desc').value.trim() || null,
+    updated_at: new Date(),
+  };
+
+  const id = window._PED_EDIT_ID;
+  let error;
+  if (id) {
+    ({ error } = await DB.from('pedidos').update(datos).eq('id', id));
+  } else {
+    ({ error } = await DB.from('pedidos').insert(datos));
+  }
+
+  if (error) { alert('Error: ' + error.message); return; }
+
+  cerrarModal('modal-ped-edit');
+  renderPedidos(document.getElementById('adm-main'));
+}
+
+async function eliminarPedido() {
+  const id = window._PED_EDIT_ID;
+  if (!id) return;
+  const pedido = (window._PEDIDOS_DATA || []).find(p => p.id === id);
+  if (!confirm(`¿Eliminar el pedido "${pedido?.numero_pedido || id}"?\n\nEsta acción no se puede deshacer.\n\nLas ventas asociadas también se eliminarán y los cuadros vendidos volverán al stock.`)) return;
+
+  // Buscar ventas asociadas
+  const { data:ventas } = await DB.from('ventas').select('id, unidad_id').eq('pedido_id', id);
+
+  // Restaurar unidades a stock
+  if (ventas) {
+    for (const v of ventas) {
+      if (v.unidad_id) {
+        await DB.from('unidades_cuadro').update({ estado: 'stock' }).eq('id', v.unidad_id);
+      }
+    }
+  }
+
+  // Borrar ventas
+  await DB.from('ventas').delete().eq('pedido_id', id);
+
+  // Borrar pedido
+  await DB.from('pedidos').delete().eq('id', id);
+
+  cerrarModal('modal-ped-edit');
+  renderPedidos(document.getElementById('adm-main'));
+}
+
 async function renderPedidos(main) {
   const { data } = await DB.from('pedidos').select('*,tipos_cuadro(nombre,codigo_id,imagen_url)').order('created_at',{ascending:false});
+  const { data:tipos } = await DB.from('tipos_cuadro').select('id,nombre,codigo_id').eq('activo',true).order('nombre');
 
   main.innerHTML=`
-  <div class="adm-hdr"><h1>Pedidos web</h1></div>
+  <div class="adm-hdr">
+    <div><h1>Pedidos web</h1></div>
+    <button class="btn btn-p" onclick="abrirModalPedido()">+ Nuevo pedido</button>
+  </div>
 
   <!-- FILTROS -->
   <div style="background:var(--marfil);border:1px solid var(--lino-osc);border-radius:var(--rm);padding:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-    <input type="text" class="fi" placeholder=" N° pedido" value="${FILTRO_PED.busqNum}" oninput="FILTRO_PED.busqNum=this.value;renderPedidosTbl()"/>
-    <input type="text" class="fi" placeholder=" Cliente" value="${FILTRO_PED.busqCli}" oninput="FILTRO_PED.busqCli=this.value;renderPedidosTbl()"/>
-  <select class="fs" onchange="FILTRO_PED.tipo=this.value;renderPedidosTbl()">
-    <option value="">Todos los tipos</option>
-    <option value="stock" ${FILTRO_PED.tipo==='stock'?'selected':''}>Stock</option>
-    <option value="encargo" ${FILTRO_PED.tipo==='encargo'?'selected':''}>Encargo</option>
-    <option value="mixto" ${FILTRO_PED.tipo==='mixto'?'selected':''}>Mixto</option>
-    <option value="personalizado_archivo" ${FILTRO_PED.tipo==='personalizado_archivo'?'selected':''}>Pers. archivo</option>
-    <option value="personalizado_nuevo" ${FILTRO_PED.tipo==='personalizado_nuevo'?'selected':''}>Pers. nuevo</option>
-  </select>
+    <input type="text" class="fi" placeholder="🔍 N° pedido" value="${FILTRO_PED.busqNum}" oninput="FILTRO_PED.busqNum=this.value;renderPedidosTbl()"/>
+    <input type="text" class="fi" placeholder="🔍 Cliente" value="${FILTRO_PED.busqCli}" oninput="FILTRO_PED.busqCli=this.value;renderPedidosTbl()"/>
+    <select class="fs" onchange="FILTRO_PED.tipo=this.value;renderPedidosTbl()">
+      <option value="">Todos los tipos</option>
+      <option value="stock" ${FILTRO_PED.tipo==='stock'?'selected':''}>Stock</option>
+      <option value="encargo" ${FILTRO_PED.tipo==='encargo'?'selected':''}>Encargo</option>
+      <option value="mixto" ${FILTRO_PED.tipo==='mixto'?'selected':''}>Mixto</option>
+      <option value="personalizado_archivo" ${FILTRO_PED.tipo==='personalizado_archivo'?'selected':''}>Pers. archivo</option>
+      <option value="personalizado_nuevo" ${FILTRO_PED.tipo==='personalizado_nuevo'?'selected':''}>Pers. nuevo</option>
+    </select>
     <select class="fs" onchange="FILTRO_PED.pago=this.value;renderPedidosTbl()">
       <option value="">Cualquier estado de pago</option>
       <option value="pendiente" ${FILTRO_PED.pago==='pendiente'?'selected':''}>Pendiente</option>
@@ -3288,9 +3414,92 @@ async function renderPedidos(main) {
     </select>
   </div>
 
-  <div id="ped-tbl">${renderPedidosTblContent(data||[])}</div>`;
+  <div id="ped-tbl">${renderPedidosTblContent(data||[])}</div>
 
-  // Guardar data en window para acceder desde renderPedidosTbl
+  <!-- Modal editar/crear pedido -->
+  <div class="overlay" id="modal-ped-edit"><div class="modal" style="max-width:640px">
+    <button class="m-close" onclick="cerrarModal('modal-ped-edit')">✕</button>
+    <h3 id="modal-ped-titulo">Nuevo pedido</h3>
+    <p style="margin-bottom:24px;color:var(--suave)" id="modal-ped-subt">Cargar pedido manualmente</p>
+
+    <div class="fg"><label class="fl">N° de pedido</label><input class="fi" id="ped-num" placeholder="Autogenerado si dejás vacío"/></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Tipo *</label>
+        <select class="fs" id="ped-tipo">
+          <option value="stock">Stock</option>
+          <option value="encargo">Encargo</option>
+          <option value="mixto">Mixto</option>
+          <option value="personalizado_archivo">Pers. archivo</option>
+          <option value="personalizado_nuevo">Pers. nuevo</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Estado de pago</label>
+        <select class="fs" id="ped-pago-estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="pagado">Pagado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">Tipo de cuadro</label>
+      <select class="fs" id="ped-tipo-cuadro">
+        <option value="">Sin cuadro específico</option>
+        ${(tipos||[]).map(t=>`<option value="${t.id}">${t.codigo_id} — ${t.nombre}</option>`).join('')}
+      </select>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Tamaño</label>
+        <select class="fs" id="ped-tam">
+          <option value="">Sin especificar</option>
+          ${Object.keys(PRECIOS).filter(t=>t!=='personalizado').sort((a,b)=>{const nA=parseInt((a.match(/\d+/)||['0'])[0],10);const nB=parseInt((b.match(/\d+/)||['0'])[0],10);return nA-nB;}).map(t=>`<option value="${t}">${t}</option>`).join('')}
+          <option value="personalizado">Personalizado</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Precio total ($)</label><input type="number" class="fi" id="ped-precio" placeholder="Vacío para 'A definir'"/></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Nombre cliente *</label><input class="fi" id="ped-cli-nom"/></div>
+      <div class="fg"><label class="fl">Email cliente *</label><input class="fi" type="email" id="ped-cli-email"/></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="fg"><label class="fl">Teléfono</label><input class="fi" type="tel" id="ped-cli-tel"/></div>
+      <div class="fg"><label class="fl">Zona de entrega *</label><input class="fi" id="ped-zona"/></div>
+    </div>
+
+    <div class="fg"><label class="fl">Método de pago</label>
+      <select class="fs" id="ped-metodo">
+        <option value="">Sin especificar</option>
+        <option value="efectivo">Efectivo o transferencia</option>
+        <option value="mercadopago">MercadoPago</option>
+      </select>
+    </div>
+
+    <div class="fg"><label class="fl">Modificaciones / detalles</label>
+      <textarea class="ft" id="ped-modif" style="min-height:80px" placeholder="Modificaciones que pidió el cliente..."></textarea>
+    </div>
+
+    <div class="fg"><label class="fl">Descripción del cuadro (para personalizados)</label>
+      <textarea class="ft" id="ped-desc" style="min-height:60px" placeholder="Solo para pedidos personalizados nuevos"></textarea>
+    </div>
+
+    <div style="display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem"><input type="checkbox" id="ped-entregado" style="width:16px;height:16px;accent-color:var(--oro)"/> Entregado</label>
+    </div>
+
+    <div style="display:flex;gap:12px;justify-content:space-between">
+      <button class="btn btn-gh" id="ped-btn-elim" onclick="eliminarPedido()" style="color:#c62828;border-color:#c62828;display:none">🗑️ Eliminar pedido</button>
+      <div style="display:flex;gap:12px;margin-left:auto">
+        <button class="btn btn-gh" onclick="cerrarModal('modal-ped-edit')">Cancelar</button>
+        <button class="btn btn-p" onclick="guardarPedido()">Guardar</button>
+      </div>
+    </div>
+  </div></div>`;
+
   window._PEDIDOS_DATA = data || [];
 }
 
@@ -3373,7 +3582,8 @@ function renderPedidosTblContent(data) {
           ${p.entregado?'✓ Sí':'No'}
         </label>
       </td>
-      <td style="font-size:.8rem;white-space:nowrap">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
+            <td style="font-size:.8rem;white-space:nowrap">${new Date(p.created_at).toLocaleDateString('es-AR')}</td>
+      <td><button class="btn btn-gh" style="padding:6px 10px;font-size:.72rem" onclick="editarPedido('${p.id}')">✏️</button></td>
     </tr>`;
   }).join('')}
   </tbody></table></div>`;
